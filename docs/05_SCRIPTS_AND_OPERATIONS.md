@@ -42,7 +42,7 @@ Expected behavior:
 
 Official reference: https://www.genspark.ai/helpcenter/gencode
 
-## 3. Scripts planned for implementation
+## 3. Current app scripts and scripts planned for implementation
 
 | Script | Mode | Purpose | Cost/side effects |
 |---|---|---|---|
@@ -51,20 +51,23 @@ Official reference: https://www.genspark.ai/helpcenter/gencode
 | scripts/smoke-model-provider.mjs | Live/explicit | One short benign request to a configured runtime provider | May use free quota; must hard-stop if cost/quota is unknown |
 | scripts/smoke-search-provider.mjs | Live/explicit | One search request and result URL validation | Consumes search quota/credits |
 | scripts/test-research-pipeline.mjs | Test | Fixture-based test for source URL, source dates, citations and contradictions | No network by default |
-| scripts/qa-workspace.mjs | Test | Routing, permissions, quota stop, artifacts, failures and regressions | Uses mocks by default |
+| scripts/qa-workspace.mjs | Implemented static QA | Verifies required files, provider binding, free-plan gate, daily cap, owner-token gate, honest demo mode and README links | No network; does not test compilation or a live provider |
 | scripts/cost-report.mjs | Local/report | Summarize recorded provider/task usage | No external calls |
 | scripts/daytona-proof.mjs | Live/explicit/disabled default | Create an isolated, bounded code sandbox and prove execution/cleanup | Only run with explicit approval and a verified free-credit balance |
 | scripts/apify-smoke.mjs | Live/explicit/disabled default | Execute one approved Actor and record usage | Consumes monthly Apify free credits; Actor/proxy costs vary |
 | scripts/export-check.mjs | Test | Generate a sample XLSX/PPTX/DOCX and reopen/inspect output | Local CPU only, if libraries are local |
 
-These planned scripts do not yet exist and are not represented as completed functionality.
+Only scripts explicitly marked implemented exist. All other entries in the table are planned, not completed functionality.
 
-## 4. Required local commands once package.json exists
+## 4. Local commands available now
 
-The app implementation should supply the following package scripts (adapt exact names if the chosen test framework differs, then document them accurately):
+The current package exposes the following scripts:
 
     npm install
     npm run dev
+    npm run dev:worker
+    npm run db:migrate:local
+    npm run qa
     npm run typecheck
     npm test
     npm run build
@@ -83,7 +86,7 @@ Use names like:
 - APIFY_TOKEN (optional)
 - DAYTONA_API_KEY (optional)
 
-Use Cloudflare secret bindings for production credentials, and an ignored local environment file for development. A variable being listed here does not mean its adapter is implemented or enabled. Workers AI and D1/R2 should use Cloudflare bindings where possible instead of exposing account API tokens to the app.
+Use Cloudflare secret bindings for production credentials, and the ignored .dev.vars file for local development. A variable being listed here does not mean its adapter is implemented or enabled. Workers AI and D1/R2 should use Cloudflare bindings where possible instead of exposing account API tokens to the app. The current runtime uses an owner-specific OWNER_ACCESS_TOKEN and requires FREE_PLAN_CONFIRMED=true before inference; setup instructions are in docs/10_LOCAL_SETUP.md.
 
 Never paste any of these secret values into a chat, code prompt, README or public issue. Do not commit an .env file. Commit only an .env.example with empty placeholders once the code skeleton exists.
 
