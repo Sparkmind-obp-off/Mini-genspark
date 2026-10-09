@@ -90,6 +90,30 @@ Keep domain logic provider-neutral. Model names and endpoint capabilities must n
 - Do not automatically fall back to Gemini, Groq, OpenRouter or another provider unless the owner explicitly configured it and approved the free/privacy terms.
 - If Workers AI requires a paid billing method for the selected model or the account quota cannot be verified, leave the adapter disabled and report the blocker honestly.
 
+## Step 4A — External provider registry (free-first, optional adapters)
+
+Read `docs/11_PROVIDER_CREDENTIALS_AND_SETUP.md` before configuring providers. Keep adapters modular and server-side. Implement only providers that fit the current architecture and can be tested safely; do not make every key mandatory.
+
+- **LLM:** Cloudflare Workers AI as the existing baseline where the selected model/account is verified eligible; Groq as the preferred optional external text-inference adapter. OpenRouter is an optional secondary adapter, not an automatic fallback.
+- **Search:** Tavily as the first optional search adapter. Normalize title, URL, snippet, publication date if available, provider, and retrieval timestamp.
+- **Scrape/extract:** Firecrawl as an optional adapter for permitted public pages; implement request timeouts, bounded response sizes, URL validation and clear rate-limit handling.
+- **Structured collection:** Apify only through explicitly configured, allowlisted Actor IDs. Show estimated/actual usage where available. Do not launch an arbitrary Actor or a potentially billable run without owner approval.
+- **Sandbox:** Daytona remains disabled by default. Do not add a working remote-execution surface until isolation, timeout, budget, task correlation, output limits, and verified cleanup are implemented and tested.
+- **Storage:** use existing D1 for structured metadata. Add R2 only when artifact size/persistence needs justify it and the account binding is configured.
+
+Provider selection must be capability-based and explicit. A secret being present does not automatically enable a provider. Add a health/configuration status that returns only `configured`, `missing`, `disabled`, `quota_exhausted`, or `error`; never return a key, key prefix, environment dump, or sensitive provider response.
+
+Required environment variables where the corresponding adapter is implemented:
+- `GROQ_API_KEY`
+- `TAVILY_API_KEY`
+- `FIRECRAWL_API_KEY`
+- `APIFY_TOKEN`
+- `OPENROUTER_API_KEY`
+
+Keep credentials out of `VITE_*` variables and browser bundles. For local testing use ignored `.dev.vars`; for production use Cloudflare Worker runtime secrets. GitHub Actions secrets are separate and do not automatically configure Worker runtime secrets. A missing optional provider must not break the app.
+
+Cost policy is **free-first, fail closed**: `ALLOW_PAID_USAGE=false` by default. Never silently fall back to a paid model, start a paid Actor, trigger auto top-up, or retry indefinitely. If a provider's free eligibility/quota cannot be verified, leave it disabled and state the blocker. Write mock tests for every adapter and run at most one bounded, harmless live smoke test per explicitly configured provider. Report mock and live results separately.
+
 ## Step 5 — Research workflow
 
 Implement this flow:
