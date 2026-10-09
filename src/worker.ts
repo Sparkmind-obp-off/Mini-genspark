@@ -23,6 +23,7 @@ interface Env {
   OWNER_ACCESS_TOKEN?: string;
   DAILY_REQUEST_LIMIT?: string;
   AI_MODEL?: string;
+  FREE_PLAN_CONFIRMED?: string;
 }
 
 const allowedModes = new Set<Mode>(["chat", "research", "create", "analyze", "build"]);
@@ -66,6 +67,9 @@ function systemPrompt(mode: Mode): string {
 
 async function handleChat(request: Request, env: Env): Promise<Response> {
   if (request.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
+  if (env.FREE_PLAN_CONFIRMED !== "true") {
+    return json({ error: "FREE_PLAN_NOT_CONFIRMED", message: "AI is disabled by default. Verify the account is on Cloudflare Workers Free and set FREE_PLAN_CONFIRMED=true only after confirming no paid usage can be triggered." }, 503);
+  }
   if (!env.AI || !env.DB) {
     return json({ error: "PROVIDER_NOT_CONFIGURED", message: "Workers AI or D1 is not configured. Follow docs/05_SCRIPTS_AND_OPERATIONS.md." }, 503);
   }
@@ -180,6 +184,7 @@ export default {
         aiBindingConfigured: Boolean(env.AI),
         databaseConfigured: Boolean(env.DB),
         ownerTokenConfigured: Boolean(env.OWNER_ACCESS_TOKEN),
+        freePlanConfirmed: env.FREE_PLAN_CONFIRMED === "true",
         model: env.AI_MODEL ?? "@cf/meta/llama-3.1-8b-instruct-fp8-fast",
         publicLaunch: false,
         liveResearch: false,
