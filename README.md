@@ -19,11 +19,12 @@ Mini Genspark aims to bring research, chat, document creation, spreadsheet analy
 ## Repository status
 
 - Repository: https://github.com/Sparkmind-obp-off/Mini-genspark
-- Initial scope: research + implementation specification.
-- Current app implementation: not yet established by this documentation commit.
-- Production deployment: not authorized by this initial plan.
+- Initial scope: self-use personal AI workspace, then a narrowly monetizable startup workflow.
+- Initial app scaffold: React/Vite workspace UI, Cloudflare Worker endpoint, Workers AI binding, D1 quota/audit schema, owner token gate, and explicitly labelled local demo mode.
+- **Build/test/live-provider status: not yet verified in this session.** The UI code and API contract are pushed; do not claim the app compiles or live inference works until scripts and a bounded smoke test pass.
+- Production deployment: not authorized by this plan.
 - Runtime provider credentials: none included.
-- No paid service will be activated by the documented plan.
+- Model inference is disabled until the owner confirms the Cloudflare account is on Workers Free; no paid fallback is implemented.
 
 ## Start here
 
@@ -34,6 +35,9 @@ Mini Genspark aims to bring research, chat, document creation, spreadsheet analy
 5. [Scripts, provider setup and safety](docs/05_SCRIPTS_AND_OPERATIONS.md)
 6. [Implementation master prompt for GenCode](docs/06_GENCODE_IMPLEMENTATION_PROMPT.md)
 7. [Research-quality test case: Indonesia's 6 October 2026 MK decision](docs/07_RESEARCH_ACCEPTANCE_CASE_MK.md)
+8. [Dogfood and monetization strategy](docs/08_DOGFOOD_AND_MONETIZATION.md)
+9. [Self-use and startup monetization plan](docs/09_SELF_USE_AND_MONETIZATION.md)
+10. [Local setup and free-tier guard](docs/10_LOCAL_SETUP.md)
 
 ## Target user experience
 
@@ -103,3 +107,27 @@ This is a read-only model inventory. It does not submit a generation task and do
 - Documentation set: docs/01 through docs/07.
 - Implemented script: scripts/gencode-provider-inventory.sh.
 - App code, package.json, runtime provider adapters, production authentication and deployment are not yet claimed as implemented.
+
+
+## Initial application scaffold
+
+The repo now includes a basic responsive workspace and owner-preview API scaffold:
+- Frontend navigation for Chat, Research, Create, Analyze and Build.
+- Visible local demo mode when a provider is not configured; demo replies explicitly disclose they are not AI inference.
+- Server-side Workers AI call using the configured model.
+- D1 daily app request reservation (default cap 20 requests/day) and minimal task event metadata.
+- Application-specific owner token gate and explicit free-plan confirmation gate.
+- No live search, file upload, durable chat history UI, arbitrary code execution, public signup, or production deployment yet.
+
+### Run local checks
+
+    npm install
+    npm run qa
+    npm run typecheck
+    npm run build
+
+Static QA is not a substitute for the build or a live provider test. The owner-only Worker setup is documented in [docs/10_LOCAL_SETUP.md](docs/10_LOCAL_SETUP.md).
+
+## Monetization direction
+
+Use the product privately first, then sell one verified workflow/output as a human-reviewed paid pilot before offering a broad AI workspace subscription. The plan with test-price hypotheses and pass/fail gates is in [docs/09_SELF_USE_AND_MONETIZATION.md](docs/09_SELF_USE_AND_MONETIZATION.md). These are hypotheses; no external customer demand, paid conversion, or product-market fit has been established.
