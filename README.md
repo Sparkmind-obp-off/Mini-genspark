@@ -86,3 +86,20 @@ The product can aim for broad *workflow coverage* similar to an all-in-one AI wo
 - Daytona limits: https://www.daytona.io/docs/limits/
 
 See the research documents for current details, caveats, and what still requires a live account check.
+
+
+## First provider inventory (developer machine)
+
+Install and sign in to the official Genspark GenCode CLI if you want to see which models are actually available to your account:
+
+    npm install -g @genspark/gencode
+    gencode login
+    bash scripts/gencode-provider-inventory.sh
+
+This is a read-only model inventory. It does not submit a generation task and does not prove that the same model catalog is available as an application-facing REST API. GenCode uses Genspark credits, so check your balance before running actual tasks.
+
+## Current repository files
+
+- Documentation set: docs/01 through docs/07.
+- Implemented script: scripts/gencode-provider-inventory.sh.
+- App code, package.json, runtime provider adapters, production authentication and deployment are not yet claimed as implemented.
