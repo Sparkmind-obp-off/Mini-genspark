@@ -114,7 +114,7 @@ textarea::placeholder, input::placeholder { color: #6f7081; }
 .mini-mark { color: #b6a0ff; font-size: 15px; }
 .message-body { min-width: 0; flex: 1; }
 .message-meta { color: #a6a7b6; font-size: 11px; font-weight: 600; margin: 4px 0 9px; }
-.message-body pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: #d4d4df; font: 12px/1.85 inherit; }
+.message-body pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: #d4d4df; font-size: 12px; line-height: 1.85; }
 .working-state { display: flex; align-items: center; gap: 9px; color: #9f94c6; font-size: 11px; }
 .spinner { border: 2px solid rgba(25,21,31,.2); border-top-color: #1b1724; width: 14px; height: 14px; border-radius: 50%; animation: spin .7s linear infinite; }
 .working-state .spinner { border-color: rgba(182,160,255,.22); border-top-color: #b6a0ff; }
