@@ -13,12 +13,13 @@
     {
       "binding": "DB",
       "database_name": "mini-genspark",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "00000000-0000-0000-0000-000000000001", // Local placeholder; replace with the real D1 ID before remote deployment.
       "migrations_dir": "migrations"
     }
   ],
   "vars": {
     "DAILY_REQUEST_LIMIT": "20",
+    "FREE_PLAN_CONFIRMED": "false",
     "AI_MODEL": "@cf/meta/llama-3.1-8b-instruct-fp8-fast"
   },
   "observability": { "enabled": true }
