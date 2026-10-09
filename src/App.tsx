@@ -7,6 +7,7 @@ type ProviderHealth = {
   aiBindingConfigured?: boolean;
   databaseConfigured?: boolean;
   ownerTokenConfigured?: boolean;
+  freePlanConfirmed?: boolean;
   model?: string;
   liveResearch?: boolean;
   codeExecution?: boolean;
@@ -81,7 +82,7 @@ export default function App() {
       .catch(() => setHealth(null));
   }, []);
 
-  const configured = Boolean(health?.aiBindingConfigured && health?.databaseConfigured && health?.ownerTokenConfigured);
+  const configured = Boolean(health?.aiBindingConfigured && health?.databaseConfigured && health?.ownerTokenConfigured && health?.freePlanConfirmed);
   const modeInfo = modeLabels[mode];
   const statusLabel = configured ? "Provider configured" : health ? "Setup required" : "Local demo";
 
@@ -253,6 +254,7 @@ export default function App() {
             <div className="modal-header"><div><div className="eyebrow">OWNER CONFIGURATION</div><h2 id="settings-title">Settings & provider</h2></div><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">×</button></div>
             <p className="modal-copy">Mini Genspark uses a server-side Cloudflare Workers AI binding. The owner token is sent in a request header and kept only in this browser tab's session storage.</p>
             <div className="settings-row"><span>Runtime provider</span><strong>Cloudflare Workers AI</strong><small>{health?.aiBindingConfigured ? "Binding detected" : "Not detected by the API"}</small></div>
+            <div className="settings-row"><span>Free-tier guard</span><strong>{health?.freePlanConfirmed ? "Owner confirmed Workers Free" : "Disabled until confirmed"}</strong><small>Do not enable if this Cloudflare account can bill usage beyond its free allocation.</small></div>
             <div className="settings-row"><span>Model</span><strong>{health?.model ?? "@cf/meta/llama-3.1-8b-instruct-fp8-fast"}</strong><small>Model availability and billing eligibility must be checked on your Cloudflare account.</small></div>
             <label className="field-label" htmlFor="owner-token">Owner access token</label>
             <input id="owner-token" className="token-input" type="password" autoComplete="off" value={ownerToken} onChange={(event) => setOwnerToken(event.target.value)} placeholder="Paste the OWNER_ACCESS_TOKEN set as a server secret" />
