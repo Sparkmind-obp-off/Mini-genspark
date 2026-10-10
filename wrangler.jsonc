@@ -6,7 +6,8 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/privacy", "/terms", "/support", "/pricing", "/status"]
   },
   "ai": { "binding": "AI" },
   "d1_databases": [
@@ -19,7 +20,12 @@
   ],
   "vars": {
     "DAILY_REQUEST_LIMIT": "20",
-    "AI_MODEL": "@cf/meta/llama-3.1-8b-instruct-fp8-fast"
+    "AI_MODEL": "@cf/meta/llama-3.1-8b-instruct-fp8-fast",
+    "LLM_PROVIDER": "cloudflare",
+    "FREE_PLAN_CONFIRMED": "false",
+    "GROQ_FREE_PLAN_CONFIRMED": "false",
+    "TAVILY_FREE_PLAN_CONFIRMED": "false",
+    "SEARCH_MONTHLY_LIMIT": "100"
   },
-  "observability": { "enabled": true }
+  "observability": { "enabled": false }
 }

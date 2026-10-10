@@ -1,75 +1,94 @@
 # VestrenHQ — Vestren AI Workspace
 
-**Vestren is building an AI workspace that turns requests into useful, evidence-backed and reviewable work products.** This is a commercial product effort, not a collection of disconnected demos.
+Turn a business/product question into a traceable brief and an editable next-step deliverable. The first workflow, not a large feature catalogue, is the product focus. Market/paid-pilot assumptions remain unvalidated.
 
-## Product direction
+## Current release truth
 
-One workspace, shared core services:
-- **Chat** — reason, decide, and iterate.
-- **Research** — retrieve sources, track evidence, show dates and uncertainty.
-- **Create** — produce editable documents and deliverables.
-- **Analyze** — inspect structured data and run deterministic calculations.
-- **Build** — plan repository changes, inspect diffs, and use bounded execution.
-- **Agent runs** — visible plans, progress, permissions, verification, and artifacts.
-- **Projects and memory** — user-controlled context and durable work history.
+**Tested local release candidate; public/commercial production NO-GO. Not deployed.** Private single-owner sessions are not public SaaS authentication. The real local workflow works without provider calls using owner-supplied excerpts, honestly labelled **provided-not-retrieved**. It does not fetch pasted URLs, independently verify facts or pretend a template is AI inference.
 
-The product inspiration is the broad all-in-one AI workspace category, including Genspark. Vestren must have its own implementation, brand, visual language, and product decisions; it does not claim feature parity with Genspark.
+Implemented and locally tested:
+- Owner login/logout with hashed D1 sessions, HttpOnly/Secure host cookies outside localhost, expiry, CSRF/exact Origin and private record checks.
+- Create/open/rename/delete projects; add/remove at most five permitted excerpts; questions, runs, sources and artifacts persist.
+- Structured manual brief: provided evidence, independently verified facts (none), working interpretation, assumptions, unknowns and next steps.
+- Editable Markdown artifacts with optimistic revision checks, safe text preview/copy and authorized MD/JSON/CSV/static escaped HTML export. Original run/evidence snapshots remain unchanged after editing; edits are not fact-checked.
+- Explicit Workers AI/Groq/Tavily adapters, disabled until free-only account policy and live proof. No paid fallback, retries, top-up or sandbox substitution.
+- Daily attempt caps, source/project/output/request/time/concurrency limits; per-run reserved/consumed/released ledger. Failed provider reservations release; anti-abuse attempt counts remain. These are not paid customer credits.
+- Public scope-matching `/privacy`, `/terms`, `/pricing`, `/support`, `/status` pages. A monitored support channel is not claimed unless configured and verified.
 
-## Commercial strategy
+**Evidence:** 51 automated unit/provider/API/D1/React tests passed; browser fixture checks passed; actual local Worker+D1 browser journey passed without HTTP/provider mocks. Dependency audit reported zero vulnerabilities. Cloudflare BYOK account authentication and read-only inventory succeeded, but no Vestren Worker/D1 target exists in the observed inventory. Wrangler dry-run validates packaging, not cloud target readiness. See NOW.md and the release/gap documents for exact evidence and open gates.
 
-The first market hypothesis is evidence-backed research and work-product creation for solo operators, small teams, and builders. This is not yet validated. The next proof is real repeated use, 3–5 design partners, and a narrow paid pilot—not adding more modes.
+## Reproduce locally
 
-Read:
-- [Commercial Startup Blueprint](docs/13_COMMERCIAL_STARTUP_BLUEPRINT.md)
-- [Commercial Product Specification](docs/14_COMMERCIAL_PRODUCT_SPEC.md)
-- [Pricing and Go-to-Market](docs/15_PRICING_AND_GO_TO_MARKET.md)
-- [Commercial Release Gates](docs/16_COMMERCIAL_RELEASE_GATES.md)
-- [Trust, Privacy, and Operations](docs/17_TRUST_PRIVACY_AND_OPERATIONS.md)
-- [Commercial Gap Register](docs/18_COMMERCIAL_GAP_REGISTER.md)
-- [Free-First Bootstrap and Monetization](docs/19_FREE_FIRST_BOOTSTRAP_AND_MONETIZATION.md)
-- [ICP and Customer Discovery](docs/20_ICP_AND_CUSTOMER_DISCOVERY.md)
-- [Positioning and Landing Page](docs/21_POSITIONING_AND_LANDING_PAGE.md)
-- [Go-to-Market Execution Playbook](docs/22_GO_TO_MARKET_EXECUTION_PLAYBOOK.md)
-- [Customer Support and Success Runbook](docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md)
-- [Cloudflare Workers Manual Release Runbook](docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md)
-- [Product Metrics and Experiment Log](docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md)
-- [Master Implementation System Prompt](docs/26_MASTER_IMPLEMENTATION_SYSTEM_PROMPT.md)
-- [Product Constitution](docs/00_VESTREN_PRODUCT_CONSTITUTION.md)
-- [Architecture](docs/03_ARCHITECTURE.md)
-- [Roadmap and acceptance criteria](docs/04_ROADMAP.md)
-- [Full-stack architecture](docs/12_VESTREN_FULL_STACK_ARCHITECTURE.md)
-- [Migration plan](docs/11_VESTREN_MIGRATION_PLAN.md)
+Node 22+, npm, local Wrangler; lockfile is now tracked. No real vendor key is needed for ordinary tests.
 
-## Operating decisions
+```sh
+npm ci
+npm run typecheck
+npm test
+npm run build
+npm run qa
+npm audit --json
+npm run db:migrate:local
+```
 
-- **Canonical repository:** VestrenHQ.
-- **Development:** repository edits, local QA, and diff review in the project workspace.
-- **Source control:** GitHub; branch, commit, inspect diff, push.
-- **No GitHub Actions / GitHub CI.** Use local checks and a manual release checklist.
-- **Runtime and deployment:** Cloudflare Workers + Wrangler.
-- **Metadata:** Cloudflare D1.
-- **File bodies/artifacts:** Cloudflare R2 when needed.
-- **Code sandbox:** Daytona selected for V1. It must run through a server-side adapter; no E2B fallback and no fake success.
-- **Cost policy:** free-tier-first, hard quota stops, no hidden paid fallback.
-- **Production:** no deployment until target bindings, secrets, auth, and rollback are verified.
+Privately copy `.dev.vars.example` to ignored `.dev.vars`, set a random application-specific `OWNER_ACCESS_TOKEN` (32–256 characters) via a private editor/secret loader, chmod 600, and leave all provider policy flags false. Never use a vendor/Cloudflare/merchant key as the app token or put secrets in VITE variables. The session's real local acceptance used an agent-generated temporary app secret in this ignored mechanism, never printed or committed.
 
-## Current implementation truth
+```sh
+npm run build
+pm2 start ecosystem.config.cjs
+curl http://localhost:3000/api/health
+npx playwright install --with-deps chromium
+npm run test:browser    # actual route denial + explicitly mocked provider UI
+npm run test:workflow   # actual local login/project/excerpt/brief/edit/export/reopen/delete
+```
 
-The current codebase is a small React + TypeScript + Vite workspace with a Cloudflare Worker, Workers AI binding, D1 usage/audit tables, and an owner-token gate. UI modes do not imply all integrations are live. The Worker currently states that live web search and file upload are not enabled. Public multi-user SaaS auth, durable project/conversation storage, complete artifact storage, and the Daytona adapter are not confirmed in this repository tree.
+PM2 config uses `/home/user/webapp`; change cwd on another machine. Frontend-only `npm run dev` has no API. `wrangler dev --local` AI bindings are still remote if invoked, so never enable them casually. Tests replace optional inference/search; the manual workflow invokes neither. Live smoke script is opt-in and fails preflight unless owner permission/free quota are verified.
 
-The current Wrangler config still contains a placeholder D1 database ID and legacy resource naming. Do not deploy remotely until real Cloudflare bindings and target environment are verified. Do not put provider secrets in frontend variables or committed files.
+## Use the primary workflow
 
-## Local checks
+1. Open Settings and log in with the separate application token.
+2. Choose **Start research project**, keep **Provided excerpts — no live retrieval / AI**, enter a project title and create it.
+3. Add permitted excerpt/document text and an optional source URL. A URL alone is not evidence and is not fetched.
+4. Enter the business question and submit. Inspect provenance/limitations; none of the supplied text is automatically verified.
+5. Open an artifact, edit working interpretation/assumptions/next actions, save the revision, then copy/download.
+6. Reopen the saved project after reload, rename it or delete it. Removing one current source does not remove immutable snapshots from old runs; project deletion/retention does.
 
-From a local checkout with Node/npm installed:
+Live Research is a separate explicit workflow requiring Tavily plus an approved inference provider; configured flags are not live verification. Other modes are limited text inference/analysis, not executed repository work or uploads. No money is accepted.
 
-    npm install
-    npm run typecheck
-    npm test
-    npm run build
+## Routes and data
 
-These commands are not reported as passing unless actually run. GitHub Actions are intentionally not used. For an approved deployment, use a terminal and Wrangler explicitly after reviewing the target account, Worker name, bindings, and secrets. Follow docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md.
+| Routes | Actual contract |
+|---|---|
+| GET `/api/health` | Minimal public owner-only status |
+| POST/GET/DELETE `/api/session` | `{token}` login / check / revoke, 8-hour sessions |
+| GET `/api/providers` | Authenticated configuration/attempt counters/limitations, no secret values or account balance |
+| POST/GET `/api/projects` | `{title}` + UUID Idempotency-Key creates research project; list most recent 50 |
+| GET/PATCH/DELETE `/api/projects/:id` | Open / `{title}` rename / guarded atomic deletion |
+| POST `/api/projects/:id/sources` | `{title,url?,evidence}` supplied excerpt, never page fetch |
+| DELETE `/api/projects/:id/sources/:sourceId` | Remove current source; old run snapshots retained |
+| POST `/api/tasks` | `{mode,prompt,inputType?,conversationId?,workflow?}`, UUID Idempotency-Key; research manual-brief requires existing project/excerpts |
+| GET `/api/tasks/:id` | Durable run status/evidence/result/provenance |
+| GET/PATCH `/api/artifacts/:id` | Content/metadata/revision; edit `{title,content,revision}` with conflict 409 |
+| GET `/api/artifacts/:id?format=md|json|csv|html` | Authorized saved-revision attachment |
+| `/api/conversations`, `/api/chat` | Compatibility routes for the same project aggregate/new task contract |
+| `/privacy`, `/terms`, `/pricing`, `/support`, `/status` | Honest public trust/scope pages |
 
-## Product rule
+Every private request uses server-derived owner identity; mutations require trusted same-origin Origin. Errors include code/message/request ID; no upstream secret bodies/stack traces. Projects reuse the existing conversation aggregate to avoid parallel schema/history. Additive 0002 adds the tested foundation; 0003 adds normalized provided-source records, artifact edit revisions and a usage ledger. 0001 is unchanged. Small text artifacts remain in D1; R2 is unnecessary for this bounded use case. No runtime filesystem, arbitrary fetcher, upload/sandbox execution or payment ledger exists.
 
-A feature is done only when the user-visible behavior, authorization, cost/quota behavior, failure state, documentation, and verification evidence agree. A mock is not a live provider test. A successful deployment is not proof that a workflow is useful. The startup must prove repeat usage and willingness to pay.
+Limits: 50 projects, 30 runs/project, five supplied excerpts/project, 2000 chars/excerpt, 4000-char question, 64 KB UTF-8 artifact, 18 KB ordinary request/128 KB editor body, 4 runs/minute, 30 workspace mutations/minute, at most 20 provider attempts/day and 100 searches/month. Content/event retention is lazy 30 days; deletion does not refund anti-abuse counters. Backup/vendor deletion guarantees remain separately unverified.
+
+## Operating and deployment decisions
+
+- Canonical repo: https://github.com/Sparkmind-obp-off/Vestrenhq (verified rename from Mini-genspark).
+- Candidate branch: `feat/vestren-research-deliverable`; no PR merge or protection change.
+- No GitHub Actions, CI workflows or automatic deployment. Local QA + manual Workers/Wrangler release only.
+- BYOK authenticated successfully; inventory showed nine unrelated D1 databases and one unrelated Worker, **zero matching Vestren/mini-genspark targets**. Do not attach to another product's DB.
+- Wrangler retains legacy local name/placeholder ID until dedicated target identity/resource-creation authorization is agreed. No remote migrations, resources, DNS, secrets or transactions changed.
+- Native Worker+Assets is preserved. The platform BYOK Pages skill provided auth/preflight guidance, but its Pages conversion steps were not applied because the canonical architecture is a Worker and release gates fail. No silent hosted-provider or stack switch.
+- No production URL exists for this candidate; local URL is http://localhost:3000. Public auth, live search/model account proofs, measured costs, restore/rollback rehearsal, legal/support approval and payment readiness are open gates.
+
+## Canonical product documents
+
+[Constitution](docs/00_VESTREN_PRODUCT_CONSTITUTION.md), [Architecture](docs/03_ARCHITECTURE.md), [Roadmap](docs/04_ROADMAP.md), [Migration](docs/11_VESTREN_MIGRATION_PLAN.md), [Full stack](docs/12_VESTREN_FULL_STACK_ARCHITECTURE.md), [Commercial blueprint](docs/13_COMMERCIAL_STARTUP_BLUEPRINT.md), [Product spec](docs/14_COMMERCIAL_PRODUCT_SPEC.md), [Pricing](docs/15_PRICING_AND_GO_TO_MARKET.md), [Release gates](docs/16_COMMERCIAL_RELEASE_GATES.md), [Trust/privacy](docs/17_TRUST_PRIVACY_AND_OPERATIONS.md), [Gap register](docs/18_COMMERCIAL_GAP_REGISTER.md), [Free-first/payment plan](docs/19_FREE_FIRST_BOOTSTRAP_AND_MONETIZATION.md), [Discovery](docs/20_ICP_AND_CUSTOMER_DISCOVERY.md), [Positioning](docs/21_POSITIONING_AND_LANDING_PAGE.md), [GTM](docs/22_GO_TO_MARKET_EXECUTION_PLAYBOOK.md), [Support](docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md), [Manual release](docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md), [Metrics](docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md).
+
+Next: approve/identify an isolated private BYOK Worker+D1 target, then complete live retrieval/inference and recovery proofs. Public paid launch stays NO-GO; Daytona and Duitku remain selected but disabled/unimplemented rather than falsely integrated.

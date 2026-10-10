@@ -7,3 +7,12 @@ dist/
 !.env.example
 .DS_Store
 coverage/
+.qa/
+logs/
+*.log
+.dev.vars.*
+!.dev.vars.example
+playwright-report/
+test-results/
+*.tar.gz
+*.bak

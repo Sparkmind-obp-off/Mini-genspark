@@ -1,53 +1,52 @@
 # NOW — VestrenHQ
 
-**Current objective:** ship a sellable, narrowly scoped Vestren product—not a documentation-only prototype.
+## Objective and actual baseline
 
-- **Canonical repo:** Sparkmind-obp-off/Vestrenhq
-- **Active branch:** feat/commercial-foundation-cloudflare-daytona
-- **Operating model:** GitHub branch/commit/push; no GitHub Actions/CI; local QA + manual Cloudflare Wrangler release.
-- **Selected sandbox:** Daytona; no E2B substitution without explicit decision.
-- **Commercial wedge:** evidence-backed research brief → editable action deliverable for solo operators and small teams. This is a hypothesis until validated with real users.
-- **Current release status:** development/prototype; not yet ready to claim public paid launch.
+First workflow: business/product question → traceable evidence brief → editable/exportable deliverable → saved project. Canonical repository was verified as **Sparkmind-obp-off/Vestrenhq** (GitHub renamed the earlier Mini-genspark URL). Active candidate branch: `feat/vestren-research-deliverable`, based on remote main `8a3d0aecb981a67157a2ca16b39cdda1913a773d`.
 
-## Commercial documents added
-- `docs/13_COMMERCIAL_STARTUP_BLUEPRINT.md` — product thesis and validation plan.
-- `docs/14_COMMERCIAL_PRODUCT_SPEC.md` — customer journey, V1 scope, acceptance criteria.
-- `docs/15_PRICING_AND_GO_TO_MARKET.md` — pricing experiments and acquisition funnel.
-- `docs/16_COMMERCIAL_RELEASE_GATES.md` — evidence required before alpha, paid pilot, and public launch.
-- `docs/17_TRUST_PRIVACY_AND_OPERATIONS.md` — data inventory, privacy, security, incident response, and support.
-- `docs/18_COMMERCIAL_GAP_REGISTER.md` — prioritized stop-ship gaps and engineering order.
-- `docs/19_FREE_FIRST_BOOTSTRAP_AND_MONETIZATION.md` — free-first infrastructure, dogfooding phases, usage packs, and Duitku payment lifecycle.
-- `docs/20_ICP_AND_CUSTOMER_DISCOVERY.md` — interview protocol, qualification rubric, and validation gates.
-- `docs/21_POSITIONING_AND_LANDING_PAGE.md` — honest positioning, landing-page structure, and claim substantiation.
-- `docs/22_GO_TO_MARKET_EXECUTION_PLAYBOOK.md` — staged dogfood, design-partner, paid-pilot, and beta plan.
-- `docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md` — support intake, severity, billing, and incident handling.
-- `docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md` — local QA, Cloudflare preflight, manual deploy, and rollback evidence.
-- `docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md` — north-star metric, event vocabulary, and experiment logging.
-- `docs/26_MASTER_IMPLEMENTATION_SYSTEM_PROMPT.md` — phase-gated implementation instructions, safety invariants, and manual release rules.
+The earlier local Mini Genspark implementation commits remain preserved on local main. Tested foundation files were selectively ported into this latest branch, excluding GitHub Actions and retaining the Vestren constitution/commercial documents. No PR was merged, branch protection changed or user work reset.
 
-## Immediate next action
-Implement and verify the first end-to-end workflow using the lowest safe-cost infrastructure: real sign-in → project persistence → live source retrieval with evidence → editable/exportable brief → usage limits → deletion. Dogfood before inviting customers. Keep all integrations capped; add Duitku as a server-side payment adapter only after merchant environment, callback verification, idempotency, and entitlement logic are tested. Treat Daytona Build execution as a separate capability until the real adapter is located/integrated and bounded smoke tests pass.
+Baseline: no lockfile on remote; `npm install` succeeded, typecheck/build passed, audit reported 0 vulnerabilities. `npm run qa` and baseline `npm test` **failed** because static QA still required obsolete README monetization/local-setup links. This was replaced by stronger current guard/no-workflow/secret checks and behavioral tests, not hidden by claiming a baseline pass.
 
-## Known blockers to verify
-- Worker currently states live web search and file upload are not enabled.
-- Public multi-user auth and tenant/project authorization are not confirmed.
-- Durable project/conversation persistence and full artifact access controls are not confirmed.
-- Daytona adapter is not confirmed in this repository tree.
-- Wrangler still uses legacy `mini-genspark` naming and a placeholder D1 ID. Do not deploy until actual Cloudflare targets are verified.
-- Local typecheck, tests, and build have not been run in this environment.
-- Go-to-market documents exist, but customer interviews, product-market fit, public launch, and paid sales are not evidenced yet.
-- Customer interviews, repeat use, willingness to pay, and paid pilot are not yet evidenced.
+## What now actually works
 
-## Session close rule
-Update this file with the latest commit, exact test results, deployment URL (if any), remaining gaps, and one next action. Never mark a task done without evidence.
+- Private owner HttpOnly session lifecycle and server-side ownership/Origin/request/usage controls.
+- Durable create/open/rename/delete project, normalized owner-provided source records and immutable run evidence snapshots.
+- Honest manual evidence brief (no page fetch, no independent verification, no AI call), editable artifact, revision conflict detection, safe export/copy.
+- Optional Workers AI/Groq/Tavily adapters with disabled-by-default gates and deterministic tests. No inference/retrieval provider is claimed LIVE VERIFIED.
+- Separate anti-abuse attempt caps and run usage reservation/settlement/release ledger. No paid credit/payment entitlement exists.
+- Accurate `/privacy`, `/terms`, `/pricing`, `/support`, `/status` surfaces. Support channel requires configured/verified SUPPORT_EMAIL; no SLA or legal certification claimed.
+- No GitHub Actions/workflow files and no automatic deployment. Daytona remains selected/disabled; no substitute. Duitku merchant-live statement is recorded, not mistaken for operational code.
 
+## Exact observed QA — 2026-10-10
 
-## Latest documentation session — 2026-10-10
-- **Latest branch commit:** 5d9fa941a005a13cbea6f7e93d7cbd51bc75aea9.
-- **Follow-up draft PR:** https://github.com/Sparkmind-obp-off/Vestrenhq/pull/4 — not merged.
-- **Scope:** added docs/20–25; expanded docs/04 roadmap; updated README and cross-links in docs/13, docs/15–19.
-- **GitHub Actions:** .github/workflows/ci.yml is absent on the feature branch; do not add CI/deploy workflows.
-- **Tests/build:** not run for this documentation-only update. No test pass is claimed.
-- **Deployment:** none performed. Placeholder D1 ID and legacy resource naming remain deployment blockers.
-- **Branch note:** feature branch is one commit behind main after the previous PR merge; review/synchronize before merge. Do not merge automatically.
-- **Next action:** implement the first end-to-end workflow against docs/14, docs/18 and docs/24; run local checks and record evidence before any Cloudflare deployment.
+| Command | Actual result |
+|---|---|
+| `npm install` | PASS; lockfile generated/reconciled; no reported vulnerabilities |
+| `npm run typecheck` | PASS |
+| `npm test -- --reporter=dot` | PASS: 51 tests, 4 files, no skips; real local D1 and mocked optional providers |
+| `npm run build` | PASS: 30 modules, SPA JS 246.58 KB / 76.56 KB gzip |
+| `npm run qa` | PASS: no workflows, canonical guards, source/build/history credential checks including local secret exact values |
+| `npm audit --json` | PASS: 0 reported vulnerabilities |
+| `npm run db:migrate:local` | PASS: additive 0003 applied; 0001/0002 preserved and upgrade tested |
+| `curl -fsS http://localhost:3000/api/health` | PASS: vestrenhq, owner-only, publicLaunch false |
+| `npm run test:browser` | PASS: real route denial/setup/keyboard; successful optional-provider UI explicitly MOCKED |
+| `npm run test:workflow` | PASS: actual local browser → Worker → D1 login/project/source/manual brief/edit/save/copy/export/rename/reload/delete/logout, no HTTP mocks or vendor calls |
+| `npx wrangler deploy --dry-run --outdir .qa/worker` | PASS: Worker 51.43 KiB / 15.61 KiB gzip; no upload/mutation/deployment |
+| `git diff --check` | PASS |
+
+Lint is NOT CONFIGURED. Cloud deployment, real vendor inference/search, public signup/tenant identity, payments/refunds/reconciliation, Daytona cleanup and production backup restore are BLOCKED/NOT TESTED, not covered by mocks. Actual screenshots `.qa/vestren-real-local-workflow.png` and `.qa/vestren-real-local-mobile.png` were generated with labelled supplied test evidence; mobile screenshot was read. They contain no application token.
+
+## Cloudflare BYOK and release decision
+
+BYOK setup and `wrangler whoami` succeeded. Read-only account inventory: **9 D1 databases and 1 Worker; zero matching Vestren/mini-genspark targets**. None belongs to this candidate by verified identity. Existing unrelated resources were not reused or altered. Wrangler retains its local placeholder/legacy name; dry-run is packaging proof only. No remote migrations, resource creation, secret changes, DNS, live transaction or production deployment occurred; no deployment URL exists.
+
+**Public/paid production: NO-GO.** Local private founder evaluation is supported with disclosed manual limitations, not public multi-user SaaS. Generic BYOK deployment/push request is recorded; deployment is blocked by resource identity and release gates, not by assuming a different hosting path. The Pages-oriented platform BYOK skill was used for authentication/preflight only; native Worker+Assets remains the canonical architecture.
+
+## Single highest-value next action
+
+Owner should **approve/identify dedicated isolated Vestren private-preview Worker + D1 resources in the authenticated BYOK account**, with no DNS/payment/provider activation. Do not guess IDs or attach another product's DB. Then set real per-environment bindings/secrets and prove live retrieval/inference/backup recovery before revisiting release GO. Public auth, approved merchant configuration/offer/callback/refund policy, verified Daytona budget/cleanup/network restrictions and customer value evidence remain separate gates.
+
+## Versioned delivery
+
+Implementation commit/push results and final SHA are recorded after actual git operations in the session's final report and subsequent evidence note. No remote push/PR/deployment is claimed in advance. Read docs/16 release gates, docs/18 gap register and docs/24 manual release record alongside this status.

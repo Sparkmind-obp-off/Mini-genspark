@@ -1,0 +1,38 @@
+import { escapeHtml } from "./domain";
+const pages: Record<string, { title: string; paragraphs: string[] }> = {
+  "/privacy": { title: "Privacy — private founder workspace", paragraphs: [
+    "Vestren is currently a single-owner development workspace, not an open multi-user SaaS. Do not submit customer-sensitive data or credentials. This notice describes code behavior; legal and jurisdiction-specific review is still required before commercial launch.",
+    "D1 stores the owner session hash, project titles, questions, supplied excerpts/URLs, generated results, editable artifacts and minimal usage/audit metadata. This is necessary to reopen, export and delete work. Authentication uses an application token exchanged for an HttpOnly cookie; provider keys are server-side secrets, not browser storage or model context.",
+    "Manual evidence mode sends no data to AI/search providers and does not fetch pasted URLs. If explicitly configured and enabled, Workers AI or Groq receives questions/context and Tavily receives research queries; excerpts may be sent to the chosen inference provider. Provider retention/training policy is not verified here; do not assume zero retention. Daytona, uploads, payments and third-party tracking are disabled.",
+    "Content/source snapshots expire lazily after 30 days on authenticated traffic, not on an exact scheduled date. Edits do not reset creation-based retention. Deleting a project removes its source records, runs and artifacts; removing a single source does not rewrite existing run snapshots. Usage attempt counters are retained without content to prevent quota-reset abuse. Vendor retention and Cloudflare backup deletion are outside this code's guarantees.",
+    "Sessions expire after eight hours; logout revokes the current session. Local development cookies are insecure only on localhost. Runtime credential rotation requires revoking existing sessions separately. Local logs may contain paths/status codes; application code does not log prompts, credentials or upstream response bodies."
+  ] },
+  "/terms": { title: "Terms and limitations — private development scope", paragraphs: [
+    "This is a private founder evaluation build. Public signup, multi-user access, commercial offers, live checkout, recurring renewal and service-level guarantees are not available. Do not share the owner application token with customers.",
+    "Manual briefs organize owner-supplied evidence and contain working sections for human editing; they are not AI inference or independently verified findings. Live search, when separately enabled, supplies excerpts rather than full-page extraction. Citation-ID checks establish source traceability, not truth, completeness or fitness for legal/financial decisions.",
+    "Only provide material you may lawfully use. Do not include secrets or private third-party data. All model/evidence content is untrusted; review exported documents before using them in other systems. Build generates text only and does not execute code.",
+    "Provider attempts are capped at at most 20 per UTC day; failed attempts can remain in the anti-abuse count, while workflow reservations settle consumed/released separately. There is no paid customer credit deduction or monetary charge. Manual briefs consume zero provider units but retain request/project/source/output caps.",
+    "No live payment or paid plan is active. Refund, cancellation, merchant, tax and consumer terms must be reviewed and published for a defined offer before taking money. This page is not evidence of compliance certification."
+  ] },
+  "/pricing": { title: "Usage and pricing status", paragraphs: [
+    "No published paid offer and no live checkout. Pricing remains a hypothesis in the product documents; no recurring or unlimited plan is promised.",
+    "Private evaluation: maximum 50 saved projects, five supplied excerpts per project, 30 runs per project, 4000-character question, 64 KB UTF-8 editable artifact, four run submissions per minute and 30 workspace edits per minute. Current provider attempt limits appear in authenticated Settings. Optional search is bounded to at most 100 basic attempts per UTC month.",
+    "A free-provider policy flag is an owner attestation, not an account balance check. Dedicated verified free-only accounts, disabled paid overage and measured costs are prerequisites before enabling live calls. No provider fallback, automatic retry, top-up, payment or sandbox creation occurs."
+  ] },
+  "/status": { title: "Release and capability status", paragraphs: [
+    "Development release candidate. Public paid launch: NO-GO until live retrieval, proper public identity/tenant isolation, verified cloud targets, operational recovery and relevant payment gates pass. No uptime or live-provider availability claim is made by this page.",
+    "Implemented: private owner sessions, projects, supplied-source ledger, honest local brief organization, editable/version-checked artifacts, export/deletion and usage controls. Optional Workers AI/Groq/Tavily availability requires configuration and live proof; configured is not live-verified.",
+    "Unavailable: public multi-user accounts, file upload, full-page crawler, Daytona sandbox execution, Duitku live transactions, subscription renewals, Office/media generation and autonomous publishing/deployment. No silent sandbox provider substitution."
+  ] },
+  "/support": { title: "Support and incident handling", paragraphs: [
+    "This private build has no promised response window or staffed SLA. A monitored channel and responsible operator must be confirmed before customer onboarding. Never include keys, session cookies, full confidential prompts or customer documents in a support report.",
+    "For a defect report, include the request correlation ID, sanitized steps, task/project ID if appropriate, expected versus observed behavior, timestamp and whether manual or live-provider mode was used. IDs are metadata; avoid publishing private URLs or content.",
+    "For an incident, the operator should disable provider flags, revoke sessions and rotate compromised keys through approved secrets tooling, preserve minimal redacted evidence, assess affected records, reproduce/test the fix and restore only after review. Production restore/rollback has not yet been rehearsed; see the manual release runbook."
+  ] }
+};
+export function policyPage(path: string, supportEmail?: string): Response | null {
+  const page = pages[path]; if (!page) return null;
+  const email = supportEmail && /^[a-zA-Z0-9._+%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(supportEmail) ? supportEmail : null;
+  const contact = path === "/support" ? email ? `<p><a href="mailto:${escapeHtml(email)}">Contact configured operator</a> (delivery and response capacity require owner verification).</p>` : "<p><strong>Support channel not configured.</strong> Set and verify SUPPORT_EMAIL before onboarding anyone.</p>" : "";
+  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)} — Vestren</title></head><body><header><a href="/">Vestren workspace</a><nav aria-label="Trust and product information">${Object.keys(pages).map(url => `<a href="${url}">${url.slice(1)}</a>`).join(" · ")}</nav></header><main><h1>${escapeHtml(page.title)}</h1><p>Updated 2026-10-10. Private scope only.</p>${page.paragraphs.map(text => `<p>${escapeHtml(text)}</p>`).join("")}${contact}</main></body></html>`, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+}

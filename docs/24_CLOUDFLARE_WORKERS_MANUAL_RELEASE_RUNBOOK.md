@@ -55,6 +55,36 @@ Wrangler commands and flags can change. Check the installed CLI's help and curre
 ## Manual release record
 Record release ID/date/operator; branch and commit SHA; typecheck/test/build results; Wrangler version/dry-run result; environment and Worker name; migration/binding verification; deployment URL/version; smoke-test cases/results; provider status/cost limits; rollback version/steps; known issues and approval.
 
+## Observed candidate preflight — 2026-10-10
+
+- Repository/branch: verified Vestrenhq rename; `feat/vestren-research-deliverable`, baseline remote main `8a3d0aecb981a67157a2ca16b39cdda1913a773d`. Push is an explicit owner request; no merge/protection change is authorized.
+- BYOK skill activated, secure Deploy-panel Cloudflare token loaded by `setup_cloudflare_api_key`, `npx wrangler whoami` succeeded for the single available owner account. Token values were never printed or copied into the repository.
+- `npx wrangler d1 list --json` succeeded read-only: nine databases, none named Vestren/mini-genspark. Read-only Workers scripts inventory returned HTTP 200, one Worker, no name match. Other product resources were not read for content, attached, renamed or modified.
+- Target Worker/database/origin/routes/environment: **BLOCKED**, not invented. Current Wrangler `mini-genspark` / placeholder D1 ID remains a local test target, not an approved production target.
+- `npm run typecheck`, 51 tests, build, audit (0 vulnerabilities), local migrations and real local workflow passed; detailed statuses/commands are in NOW.md. Updated lockfile is used for final `npm ci` verification.
+- `npx wrangler deploy --dry-run --outdir .qa/worker` succeeded with Wrangler 4.149.0: 51.43 KiB upload bundle / 15.61 KiB gzip, explicitly exited dry-run. This validates Worker packaging only. It did not upload/deploy, verify placeholder binding existence or set secrets.
+- Provider flags remain false; local app token exists only in ignored `.dev.vars` (mode 0600). App/schema/source/artifact/provider error contracts were tested locally; actual inference/search/account quotas are not live-verified.
+- Real local browser journey used user-supplied labelled fixture evidence, not mocked API responses or live research. Test project and session were deleted/revoked afterwards. `.qa/` screenshots/bundles and temporary credentials are ignored, not production artifacts or committed data.
+- GitHub Actions/workflows remain absent. The Pages-oriented BYOK skill was not used to create a Pages project or convert this native Worker; constitution and actual Worker arrangement remain authoritative.
+- No production resources/migrations/secrets/DNS/payments/Daytona sandbox were changed. Deployment URL/version and rollback version: **none / NOT RUN**.
+
+### Exact unblocking sequence (owner action; not executed)
+
+1. Approve/identify dedicated isolated private-preview Worker+D1 resources in the authenticated BYOK account; define preview versus production intent. Do not reuse an unrelated DB. Confirm account plan/quota/cost policy and expected operator.
+2. With explicit resource-creation authorization, obtain actual IDs from Cloudflare, create a separately reviewed preview config with those IDs/name/origin, and keep production config untouched. Never generate guessed UUIDs or substitute platform-managed hosting.
+3. Use runtime secret prompts/dashboard for `OWNER_ACCESS_TOKEN` and only approved providers (`GROQ_API_KEY` / `TAVILY_API_KEY`, or verified Workers AI binding). Set/verify `APP_ORIGIN`; revoke sessions when rotating owner access. Keys belong in secrets, never command-line literals, VITE or GitHub Actions.
+4. Export/verify a backup of the intended existing database before an approved remote migration. Apply additive migrations to isolated preview first; inspect schema/row integrity and rehearse restore into a separate test DB.
+5. Approve a bounded live provider test only after balance/free-only overage/privacy checks. `npm run test:live` requires `RUN_LIVE_SMOKE`, `COST_QUOTA_VERIFIED`, `LIVE_BASE_URL`, securely loaded `OWNER_ACCESS_TOKEN`, and optional `SMOKE_MODE`. It makes one task, no retries/fallback, consumes vendor allowance and must be followed by account usage inspection. No live proof is claimed here.
+6. Reassess docs/16. For an explicitly approved private scope, run manual Worker deployment only after real config/credentials/backup are valid, then smoke-test its actual URL and auth/data/error/usage/delete paths. Public or paid scope stays NO-GO until public identity/tenant, legal/support, recovery and payment gates pass.
+
+### Recovery plan and rehearsal gap
+
+- Kill switches: leave/reset `FREE_PLAN_CONFIRMED`, `GROQ_FREE_PLAN_CONFIRMED`, `TAVILY_FREE_PLAN_CONFIRMED` false; no automatic fallback. Manual supplied-evidence workflow remains useful without vendors.
+- On auth compromise, revoke affected/all sessions with approved database tooling and rotate application/vendor secrets. Changing application token alone does not invalidate existing cookie sessions.
+- Restore the prior approved Worker version, preserving additive database tables. Do not drop populated schema as a routine rollback. If data recovery is needed, restore a verified backup into a new isolated database and switch bindings only with explicit owner approval.
+- No prior live release/version/backup of this candidate exists; cloud rollback, restore, monitoring/alert delivery and legal incident notification procedures remain NOT TESTED. A written plan is not a rehearsal.
+- Failure triggers: unauthorized record access, secret leakage, incorrect edit/persistence/deletion, unbounded cost, failed retrieval provenance, or ambiguous payment state. Stop the affected capability and preserve sanitized request IDs/error/status metadata, not prompt bodies or credentials.
+
 ## No-CI invariant
 - Do not add .github/workflows files for CI/deployment.
 - Do not rely on GitHub checks to authorize release.

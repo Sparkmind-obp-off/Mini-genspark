@@ -1,270 +1,168 @@
-import { useEffect, useState } from "react";
-
-type Mode = "chat" | "research" | "create" | "analyze" | "build";
-type ProviderHealth = {
-  status?: string;
-  modelProvider?: string;
-  aiBindingConfigured?: boolean;
-  databaseConfigured?: boolean;
-  ownerTokenConfigured?: boolean;
-  freePlanConfirmed?: boolean;
-  model?: string;
-  liveResearch?: boolean;
-  codeExecution?: boolean;
+import { useEffect, useRef, useState } from "react";
+import { MODES, type Mode, type Source } from "./domain";
+type Task = { id: string; conversationId: string; prompt: string; response: string; status: string; error: string | null; mode: Mode; sources: Source[]; provider: string; model: string; notice: string; analysis: unknown };
+type Conversation = { id: string; title: string; mode: Mode };
+type Artifact = { id: string; title: string; content?: string; created_at: string; updated_at?: string; revision?: number };
+type Providers = { inference: { provider: string; model: string; configured: boolean; enabled: boolean }; search: { configured: boolean; enabled: boolean }; usage: { used: number; limit: number; searchMonthUsed: number; searchMonthLimit: number }; costPolicy: string; disabled: string[] };
+const labels: Record<Mode, { title: string; description: string; icon: string; placeholder: string }> = {
+  chat: { title: "Chat", description: "Think through an idea", icon: "C", placeholder: "Ask a question or work through an idea…" },
+  research: { title: "Research", description: "Work with retrieved evidence", icon: "R", placeholder: "Research a topic using search excerpts and source citations…" },
+  create: { title: "Create", description: "Create an editable Markdown deliverable", icon: "D", placeholder: "Describe a document, proposal or plan…" },
+  analyze: { title: "Analyze", description: "Analyze pasted text, CSV or JSON", icon: "A", placeholder: "Paste your text or structured data (no file upload)…" },
+  build: { title: "Build", description: "Generate code as text; no execution", icon: "B", placeholder: "Describe the code or implementation plan…" }
 };
-type Message = { role: "user" | "assistant"; content: string; id: string };
-type ApiResponse = {
-  taskId?: string;
-  response?: string;
-  error?: string;
-  message?: string;
-  model?: string;
-  quota?: { appRequestsUsed: number; appRequestsLimit: number };
-  notice?: string;
-};
-
-const modeLabels: Record<Mode, { title: string; description: string; icon: string; placeholder: string }> = {
-  chat: { title: "Chat", description: "Think through an idea", icon: "✳", placeholder: "Ask Vestren anything…" },
-  research: { title: "Research", description: "Work with evidence", icon: "⌕", placeholder: "What do you need to research? Live web search is not connected yet." },
-  create: { title: "Create", description: "Turn thoughts into a deliverable", icon: "▤", placeholder: "Draft a document, proposal, or plan…" },
-  analyze: { title: "Analyze", description: "Reason through data and questions", icon: "▥", placeholder: "Paste the figures or data you want to analyze…" },
-  build: { title: "Build", description: "Plan or write code", icon: "⌘", placeholder: "Describe the code, feature, or repo task…" }
-};
-
-const starters: Array<{ mode: Mode; title: string; description: string }> = [
-  { mode: "research", title: "Research a topic", description: "Collect questions, claims and sources to verify." },
-  { mode: "create", title: "Create a deliverable", description: "Turn rough ideas into a structured draft." },
-  { mode: "analyze", title: "Analyze a decision", description: "Compare options, assumptions and trade-offs." },
-  { mode: "build", title: "Build something", description: "Write an implementation plan or code draft." }
-];
-
-function makeId(): string {
-  return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + "-" + String(Math.random());
+class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
+async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(path, { credentials: "same-origin", ...options });
+  const data = await response.json();
+  if (!response.ok) throw new ApiError(response.status, data.message ?? data.error ?? "API request failed");
+  return data as T;
 }
-
-function demoResponse(mode: Mode, prompt: string): string {
-  const intro = "This is a local demo response, not an actual AI inference. Configure the owner token and Cloudflare Worker provider to run a real model.";
-  if (mode === "research") {
-    return intro + "\n\nResearch task: " + prompt + "\n\nSuggested research checklist:\n1. Find the primary source.\n2. Cross-check with two independent sources.\n3. Separate facts, allegations, interpretation, and unknowns.\n4. Record publication and event dates separately.\n\nLive web search and citations are not connected yet; no sources have been retrieved.";
-  }
-  if (mode === "create") {
-    return intro + "\n\n# Draft outline\n\n## Objective\nClarify the outcome needed for: " + prompt + "\n\n## Proposed structure\n1. Context and audience\n2. Main argument or proposal\n3. Implementation steps\n4. Risks and assumptions\n5. Next action\n\nThis is an outline, not a model-generated deliverable.";
-  }
-  if (mode === "analyze") {
-    return intro + "\n\n## Analysis checklist\n- Identify the decision and success metric.\n- Verify units and inputs.\n- Separate facts from assumptions.\n- Compare base, downside and upside scenarios.\n\nTask: " + prompt + "\n\nNo file has been uploaded or computed in this demo.";
-  }
-  if (mode === "build") {
-    return intro + "\n\n## Build plan\n1. Define acceptance criteria for: " + prompt + "\n2. Identify the smallest file/module change.\n3. Implement behind a typed interface.\n4. Add success and failure tests.\n5. Run typecheck, tests and build.\n\nNo repository was accessed and no code was executed.";
-  }
-  return intro + "\n\nYou asked: " + prompt + "\n\nThis workspace is being built in phases. Configure the server-side provider to get a real model response here.";
-}
-
 export default function App() {
-  const [mode, setMode] = useState<Mode>("chat");
-  const [prompt, setPrompt] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [health, setHealth] = useState<ProviderHealth | null>(null);
-  const [ownerToken, setOwnerToken] = useState(() => {
-    try { return sessionStorage.getItem("vestren-owner-token") ?? sessionStorage.getItem("mini-genspark-owner-token") ?? ""; } catch { return ""; }
-  });
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [history, setHistory] = useState<Array<{ id: string; title: string; mode: Mode }>>([]);
-
+  const [mode, setMode] = useState<Mode>("chat"); const [prompt, setPrompt] = useState("");
+  const [inputType, setInputType] = useState<"text" | "csv" | "json">("text");
+  const [authenticated, setAuthenticated] = useState(false); const [providers, setProviders] = useState<Providers | null>(null);
+  const [history, setHistory] = useState<Conversation[]>([]); const [conversationId, setConversationId] = useState<string>();
+  const [tasks, setTasks] = useState<Task[]>([]); const [artifacts, setArtifacts] = useState<Artifact[]>([]); const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
+  const [projectTitle, setProjectTitle] = useState(""); const [activeTitle, setActiveTitle] = useState("");
+  const [projectSources, setProjectSources] = useState<(Source & { recordId?: string })[]>([]);
+  const [sourceTitle, setSourceTitle] = useState(""); const [sourceUrl, setSourceUrl] = useState(""); const [sourceEvidence, setSourceEvidence] = useState("");
+  const [workflow, setWorkflow] = useState<"manual-brief" | "provider">("manual-brief");
+  const [artifactDraft, setArtifactDraft] = useState(""); const [artifactTitle, setArtifactTitle] = useState(""); const [savingArtifact, setSavingArtifact] = useState(false);
+  const [busy, setBusy] = useState(false); const [notice, setNotice] = useState<string | null>(null); const [settingsOpen, setSettingsOpen] = useState(false);
+  const [ownerToken, setOwnerToken] = useState(""); const [loginBusy, setLoginBusy] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null); const submitLock = useRef(false); const retry = useRef<{ body: string; key: string } | undefined>(undefined);
+  const usable = mode === "research" && workflow === "manual-brief" ? Boolean(authenticated && conversationId && projectSources.length) : Boolean(authenticated && providers?.inference.configured && providers.inference.enabled && (mode !== "research" || (providers.search.configured && providers.search.enabled)));
+  const running = tasks.some(t => t.status === "running"); const locked = busy || running || savingArtifact;
+  function clearPrivateView() {
+    setAuthenticated(false); setProviders(null); setHistory([]); setTasks([]); setArtifacts([]); setSelectedArtifact(null); setProjectSources([]); setConversationId(undefined); setPrompt(""); setOwnerToken(""); setActiveTitle(""); setProjectTitle(""); setSourceTitle(""); setSourceUrl(""); setSourceEvidence(""); setArtifactDraft(""); setArtifactTitle(""); retry.current = undefined;
+  }
+  function reportError(error: unknown) {
+    if (error instanceof ApiError && error.status === 401) {
+      clearPrivateView();
+      setNotice("Session expired or unauthorized. Sign in again; private data cleared from this view.");
+    } else setNotice(error instanceof Error ? error.message : "Request failed. No retry or fallback.");
+  }
+  async function refresh() {
+    const [p, h] = await Promise.all([api<Providers>("/api/providers"), api<Conversation[]>("/api/conversations")]);
+    setProviders(p); setHistory(h);
+  }
+  async function loadConversation(id: string) {
+    const data = await api<{ title?: string; mode?: Mode; sources?: (Source & { recordId?: string })[]; tasks: Task[]; artifacts: Artifact[] }>("/api/conversations/" + id);
+    setConversationId(id); setTasks(data.tasks); setArtifacts(data.artifacts); setSelectedArtifact(null);
+    setActiveTitle(data.title ?? data.tasks[0]?.prompt.slice(0, 90) ?? ""); setProjectTitle(data.title ?? ""); setProjectSources(data.sources ?? []);
+    if (data.mode ?? data.tasks[0]?.mode) setMode(data.mode ?? data.tasks[0].mode);
+  }
   useEffect(() => {
-    fetch("/api/health")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("API not available");
-        return await response.json() as ProviderHealth;
-      })
-      .then(setHealth)
-      .catch(() => setHealth(null));
+    // Remove legacy browser credential persistence without reading its value.
+    try { sessionStorage.removeItem("vestren-owner-token"); sessionStorage.removeItem("mini-genspark-owner-token"); } catch { /* Storage may be disabled; no credential persistence is used. */ }
+    api("/api/session").then(() => { setAuthenticated(true); return refresh(); }).catch(() => setNotice("Owner login required. Configure runtime secrets through the setup guide; never enter provider keys in this browser."));
   }, []);
-
-  const configured = Boolean(health?.aiBindingConfigured && health?.databaseConfigured && health?.ownerTokenConfigured && health?.freePlanConfirmed);
-  const modeInfo = modeLabels[mode];
-  const statusLabel = configured ? "Provider configured" : health ? "Setup required" : "Local demo";
-
-  function saveToken() {
+  useEffect(() => { if (settingsOpen) dialog.current?.showModal(); else dialog.current?.close(); }, [settingsOpen]);
+  useEffect(() => {
+    if (!running || !conversationId) return;
+    const interval = setInterval(() => { void loadConversation(conversationId).catch(reportError); }, 2500);
+    return () => clearInterval(interval);
+  }, [running, conversationId]);
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key === "k" && !locked) { e.preventDefault(); newTask(); } };
+    window.addEventListener("keydown", listener); return () => window.removeEventListener("keydown", listener);
+  });
+  function allowDiscard() { return !selectedArtifact || artifactDraft === (selectedArtifact.content ?? "") && artifactTitle === selectedArtifact.title || window.confirm("Discard unsaved artifact edits?"); }
+  function newTask(nextMode: Mode = "research") { if (!allowDiscard()) return; createRequest.current = null; setWorkflow("manual-brief"); setSourceTitle(""); setSourceUrl(""); setSourceEvidence(""); setActiveTitle(""); setProjectTitle(""); setProjectSources([]); setArtifactDraft(""); setArtifactTitle(""); setMode(nextMode); setConversationId(undefined); setTasks([]); setArtifacts([]); setSelectedArtifact(null); setPrompt(""); setInputType("text"); retry.current = undefined; }
+  async function login(e: React.FormEvent) {
+    e.preventDefault(); if (loginBusy) return; setLoginBusy(true);
+    try { await api("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: ownerToken }) }); setOwnerToken(""); setAuthenticated(true); await refresh(); setNotice("Owner session active (8 hours). Token not retained in browser storage."); }
+    catch (error) { reportError(error); }
+    finally { setOwnerToken(""); setLoginBusy(false); }
+  }
+  async function logout() {
+    try { await api("/api/session", { method: "DELETE" }); clearPrivateView(); setSettingsOpen(false); setNotice("Logged out. Session revoked."); }
+    catch (error) { reportError(error); }
+  }
+  async function submitTask(e?: React.FormEvent) {
+    e?.preventDefault(); if (!prompt.trim() || submitLock.current || locked || !usable || !allowDiscard()) return;
+    submitLock.current = true; setBusy(true); setNotice(null);
+    const body = JSON.stringify({ mode, prompt: prompt.trim(), inputType: mode === "analyze" ? inputType : "text", ...(mode === "research" ? { workflow } : {}), ...(conversationId ? { conversationId } : {}) });
+    const key = retry.current?.body === body ? retry.current.key : crypto.randomUUID(); retry.current = { body, key };
     try {
-      sessionStorage.setItem("vestren-owner-token", ownerToken.trim());
-      sessionStorage.removeItem("mini-genspark-owner-token");
-      setNotice(ownerToken.trim() ? "Owner token saved to this browser tab's session storage." : "Owner token cleared.");
-    } catch {
-      setNotice("Could not save token in this browser session.");
-    }
-    setSettingsOpen(false);
+      const task = await api<Task>("/api/tasks", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": key }, body });
+      await loadConversation(task.conversationId); setPrompt(""); retry.current = undefined;
+      setNotice(task.status === "succeeded" ? "Succeeded with " + task.provider + " / " + task.model + ". Output persisted." : "Task status: " + task.status + (task.error ? " / " + task.error : ""));
+    } catch (error) { reportError(error); }
+    finally { try { await refresh(); } catch (error) { if (error instanceof ApiError && error.status === 401) reportError(error); } setBusy(false); submitLock.current = false; }
   }
-
-  async function submitTask() {
-    const text = prompt.trim();
-    if (!text || busy) return;
-    const userMessage: Message = { role: "user", content: text, id: makeId() };
-    const nextMessages = [...messages, userMessage].slice(-8);
-    setMessages(nextMessages);
-    setPrompt("");
-    setBusy(true);
-    setNotice(null);
-
-    if (!configured || !ownerToken.trim()) {
-      setMessages((current) => [...current, { role: "assistant", content: demoResponse(mode, text), id: makeId() }]);
-      setHistory((current) => [{ id: makeId(), title: text.slice(0, 42), mode }, ...current].slice(0, 12));
-      setBusy(false);
-      return;
-    }
-
+  async function deleteConversation() {
+    if (!conversationId || locked || !window.confirm("Delete this conversation, tasks and artifacts? Usage counters will not reset.")) return;
+    try { await api("/api/conversations/" + conversationId, { method: "DELETE" }); newTask(); await refresh(); setNotice("Conversation deleted; usage counters retained."); }
+    catch (error) { reportError(error); }
+  }
+  async function viewArtifact(id: string) { if (!allowDiscard()) return; try { const artifact = await api<Artifact>("/api/artifacts/" + id); setSelectedArtifact(artifact); setArtifactDraft(artifact.content ?? ""); setArtifactTitle(artifact.title); } catch (error) { reportError(error); } }
+  async function copyArtifact() { try { await navigator.clipboard.writeText(artifactDraft); setNotice("Artifact copied."); } catch { setNotice("Clipboard permission unavailable. Select and copy the preview text manually."); } }
+  async function downloadArtifact(format: string) {
+    if (!selectedArtifact) return;
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-vestren-owner-token": ownerToken.trim() },
-        body: JSON.stringify({ mode, messages: nextMessages.map(({ role, content: messageContent }) => ({ role, content: messageContent })) })
-      });
-      const result = await response.json() as ApiResponse;
-      if (!response.ok || !result.response) {
-        const errorMessage = result.message ?? result.error ?? ("Request failed with status " + response.status);
-        setMessages((current) => [...current, { role: "assistant", content: "Request did not complete.\n\n" + errorMessage + "\n\nNo paid fallback was attempted.", id: makeId() }]);
-        setNotice("Request failed: " + (result.error ?? response.status));
-      } else {
-        const responseText = result.notice ? result.response + "\n\n---\n" + result.notice : result.response;
-        setMessages((current) => [...current, { role: "assistant", content: responseText, id: result.taskId ?? makeId() }]);
-        setNotice("Completed with " + (result.model ?? "configured model") + (result.quota ? " · " + result.quota.appRequestsUsed + "/" + result.quota.appRequestsLimit + " daily app requests" : ""));
-      }
-      setHistory((current) => [{ id: makeId(), title: text.slice(0, 42), mode }, ...current].slice(0, 12));
-    } catch {
-      setMessages((current) => [...current, { role: "assistant", content: "The API could not be reached. Check the local Worker, bindings, and network. The request was not redirected to a paid provider.", id: makeId() }]);
-      setNotice("API unavailable");
-    } finally {
-      setBusy(false);
-    }
+      const response = await fetch(`/api/artifacts/${selectedArtifact.id}?format=${format}`, { credentials: "same-origin" });
+      if (!response.ok) throw new ApiError(response.status, "Download failed. Check session and format.");
+      const objectUrl = URL.createObjectURL(await response.blob()); const link = document.createElement("a"); link.href = objectUrl; link.download = `vestren-${selectedArtifact.id}.${format}`; link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000); setNotice("Artifact downloaded: " + format);
+    } catch (error) { reportError(error); }
   }
-
-  function newTask() {
-    setMessages([]);
-    setPrompt("");
-    setNotice(null);
-    setMode("chat");
+  const mutationLock = useRef(false); const createRequest = useRef<{ title: string; id: string } | null>(null);
+  function beginMutation() { if (mutationLock.current || locked) return false; mutationLock.current = true; setBusy(true); return true; }
+  function finishMutation() { mutationLock.current = false; setBusy(false); }
+  async function createProject(e: React.FormEvent) {
+    e.preventDefault(); if (!authenticated || !projectTitle.trim() || !beginMutation()) return;
+    const name = projectTitle.trim(); const id = createRequest.current?.title === name ? createRequest.current.id : crypto.randomUUID(); createRequest.current = { title: name, id };
+    try { const p = await api<{ id: string }>("/api/projects", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": id }, body: JSON.stringify({ title: name }) }); await loadConversation(p.id); await refresh(); createRequest.current = null; setNotice("Project saved. Add permitted excerpts; URLs are not fetched in manual mode."); }
+    catch (error) { reportError(error); } finally { finishMutation(); }
   }
-
-  return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <button className="brand" onClick={newTask} aria-label="Vestren home">
-          <span className="brand-mark"><span /><span /><span /><span /></span>
-          <span className="brand-text"><span>Vestren</span><small>PERSONAL AI WORKSPACE</small></span>
-        </button>
-        <button className="new-task" onClick={newTask}><span>＋</span> New task <kbd>⌘ K</kbd></button>
-        <div className="nav-label">WORKSPACE</div>
-        <nav className="nav-list" aria-label="Workspace modes">
-          {(Object.keys(modeLabels) as Mode[]).map((item) => (
-            <button key={item} className={"nav-item " + (mode === item ? "active" : "")} onClick={() => setMode(item)}>
-              <span className="nav-icon">{modeLabels[item].icon}</span><span>{modeLabels[item].title}</span>
-              {item === "research" && <span className="nav-status planned" title="Live search not connected">•</span>}
-            </button>
-          ))}
-        </nav>
-        <div className="nav-label recent-label">RECENT TASKS</div>
-        <div className="history-list">
-          {history.length === 0 ? <p className="empty-history">Your work will appear here.</p> : history.map((item) => (
-            <button key={item.id} className="history-item" onClick={() => { setMode(item.mode); setNotice("History item selected; full durable history is not implemented yet."); }}>
-              <span>↳</span>{item.title}
-            </button>
-          ))}
-        </div>
-        <div className="sidebar-bottom">
-          <div className="usage-card">
-            <div className="usage-heading"><span className="pulse-dot" /> OWNER PREVIEW</div>
-            <p>{configured ? "Cloudflare AI configured" : "Local demo mode"}</p>
-            <small>{configured ? "Owner-only API · capped requests" : "No external AI request is sent"}</small>
-          </div>
-          <button className="settings-button" onClick={() => setSettingsOpen(true)}><span>⚙</span> Settings & provider</button>
-          <div className="sidebar-foot"><span>VESTREN · V0.1</span><span className="foot-dot" /> FREE-FIRST</div>
-        </div>
-      </aside>
-
-      <main className="main-area">
-        <header className="topbar">
-          <div className="breadcrumb">Workspace <span>/</span> <strong>{modeInfo.title}</strong></div>
-          <div className="topbar-right">
-            <span className={"status-pill " + (configured ? "connected" : "")}><span />{statusLabel}</span>
-            <button className="avatar" onClick={() => setSettingsOpen(true)} title="Settings">M</button>
-          </div>
-        </header>
-
-        <div className={"work-canvas " + (messages.length ? "conversation-mode" : "")}>
-          {messages.length === 0 ? (
-            <section className="welcome">
-              <div className="eyebrow"><span className="sparkle">✳</span> YOUR WORK, ONE WORKSPACE</div>
-              <h1>What are we <span>working on</span><br />today?</h1>
-              <p className="welcome-copy">Research ideas. Create deliverables. Work through data.<br className="desktop-break" /> One workspace, with sources and limits you can trust.</p>
-              <div className="composer-wrap">
-                <div className="composer-top"><span className="composer-dot" /> <span>{modeInfo.description}</span><span className="composer-mode">{modeInfo.title}</span></div>
-                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitTask(); } }} placeholder={modeInfo.placeholder} rows={3} maxLength={4000} aria-label="Task prompt" />
-                <div className="composer-bottom">
-                  <span className="composer-hint">Be specific. Review important outputs.</span>
-                  <button className="send-button" onClick={() => void submitTask()} disabled={!prompt.trim() || busy} aria-label="Run task">{busy ? <span className="spinner" /> : "↑"}</button>
-                </div>
-              </div>
-              {!configured && <div className="demo-note"><span>ⓘ</span><span><strong>Local demo mode.</strong> Responses are illustrative templates, not AI results. Configure Cloudflare Workers AI in Settings to run a real model.</span></div>}
-              <div className="starter-head"><span>START WITH A WORKFLOW</span><span className="starter-line" /></div>
-              <div className="starter-grid">
-                {starters.map((item, index) => (
-                  <button className="starter-card" key={item.mode} onClick={() => {
-                    setMode(item.mode);
-                    const startersByIndex = [
-                      "Research this topic with primary sources, dates, and a claim/evidence table: ",
-                      "Create a polished, reusable deliverable for: ",
-                      "Analyze this question, assumptions, options, and decision criteria: ",
-                      "Create an implementation plan, acceptance criteria, and tests for: "
-                    ];
-                    setPrompt(startersByIndex[index]);
-                  }}>
-                    <span className={"starter-icon color-" + index}>{modeLabels[item.mode].icon}</span>
-                    <span className="starter-text"><strong>{item.title}</strong><small>{item.description}</small></span>
-                    <span className="starter-arrow">↗</span>
-                  </button>
-                ))}
-              </div>
-              <div className="principles"><span>✳</span> No fake sources <i /> No silent paid fallback <i /> You stay in control</div>
-            </section>
-          ) : (
-            <section className="conversation">
-              <div className="conversation-title"><div className="eyebrow"><span className="sparkle">✳</span> {modeInfo.title.toUpperCase()}</div><h2>{messages.find((message) => message.role === "user")?.content.slice(0, 90)}</h2><p>Outputs are saved in this page session only in V0.1.</p></div>
-              <div className="message-stack">
-                {messages.map((message) => (
-                  <article className={"message message-" + message.role} key={message.id}>
-                    <div className="message-avatar">{message.role === "user" ? "Y" : <span className="mini-mark">✳</span>}</div>
-                    <div className="message-body"><div className="message-meta">{message.role === "user" ? "You" : "Vestren"}</div><pre>{message.content}</pre></div>
-                  </article>
-                ))}
-                {busy && <div className="working-state"><span className="spinner" /> Working within configured limits…</div>}
-              </div>
-              <div className="followup-composer">
-                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitTask(); } }} placeholder="Continue this task…" rows={2} maxLength={4000} aria-label="Follow-up prompt" />
-                <div className="followup-actions"><span>Enter to send · Shift+Enter for a new line</span><button className="send-button" onClick={() => void submitTask()} disabled={!prompt.trim() || busy}>{busy ? <span className="spinner" /> : "↑"}</button></div>
-              </div>
-            </section>
-          )}
-          {notice && <div className="bottom-notice" role="status">{notice}</div>}
-        </div>
-      </main>
-
-      {settingsOpen && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
-          <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-            <div className="modal-header"><div><div className="eyebrow">OWNER CONFIGURATION</div><h2 id="settings-title">Settings & provider</h2></div><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">×</button></div>
-            <p className="modal-copy">Vestren uses a server-side Cloudflare Workers AI binding. The owner token is sent in a request header and kept only in this browser tab's session storage.</p>
-            <div className="settings-row"><span>Runtime provider</span><strong>Cloudflare Workers AI</strong><small>{health?.aiBindingConfigured ? "Binding detected" : "Not detected by the API"}</small></div>
-            <div className="settings-row"><span>Free-tier guard</span><strong>{health?.freePlanConfirmed ? "Owner confirmed Workers Free" : "Disabled until confirmed"}</strong><small>Do not enable if this Cloudflare account can bill usage beyond its free allocation.</small></div>
-            <div className="settings-row"><span>Model</span><strong>{health?.model ?? "@cf/meta/llama-3.1-8b-instruct-fp8-fast"}</strong><small>Model availability and billing eligibility must be checked on your Cloudflare account.</small></div>
-            <label className="field-label" htmlFor="owner-token">Owner access token</label>
-            <input id="owner-token" className="token-input" type="password" autoComplete="off" value={ownerToken} onChange={(event) => setOwnerToken(event.target.value)} placeholder="Paste the OWNER_ACCESS_TOKEN set as a server secret" />
-            <div className="settings-warning"><strong>Private preview only.</strong> Do not deploy publicly without real user authentication, quota enforcement, and access controls. Never paste a Cloudflare API token here—this field is only for the application-specific owner token.</div>
-            <div className="settings-actions"><button className="secondary-button" onClick={() => { setOwnerToken(""); sessionStorage.removeItem("vestren-owner-token"); sessionStorage.removeItem("mini-genspark-owner-token"); setNotice("Owner token cleared."); }}>Clear token</button><button className="primary-button" onClick={saveToken}>Save for this tab</button></div>
-            <div className="settings-footer">{health ? "API status: " + (health.status ?? "reachable") + " · Live research: " + (health.liveResearch ? "enabled" : "not connected") + " · Code execution: " + (health.codeExecution ? "enabled" : "disabled") : "API status: unavailable or not started."}</div>
-          </section>
-        </div>
-      )}
-    </div>
-  );
+  async function renameProject(e: React.FormEvent) {
+    e.preventDefault(); if (!conversationId || !projectTitle.trim() || !beginMutation()) return;
+    try { await api("/api/projects/" + conversationId, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: projectTitle.trim() }) }); setActiveTitle(projectTitle.trim()); await refresh(); setNotice("Project renamed."); }
+    catch (error) { reportError(error); } finally { finishMutation(); }
+  }
+  async function addSource(e: React.FormEvent) {
+    e.preventDefault(); if (!conversationId || !allowDiscard() || !beginMutation()) return;
+    try { await api("/api/projects/" + conversationId + "/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: sourceTitle, url: sourceUrl, evidence: sourceEvidence }) }); await loadConversation(conversationId); setSourceTitle(""); setSourceUrl(""); setSourceEvidence(""); setNotice("Excerpt saved as owner-provided, not retrieved or independently verified."); }
+    catch (error) { reportError(error); } finally { finishMutation(); }
+  }
+  async function removeSource(id: string) {
+    if (!conversationId || !allowDiscard() || !beginMutation()) return;
+    try { await api(`/api/projects/${conversationId}/sources/${id}`, { method: "DELETE" }); await loadConversation(conversationId); setNotice("Source removed from future briefs. Existing run snapshots remain until project deletion or retention cleanup."); }
+    catch (error) { reportError(error); } finally { finishMutation(); }
+  }
+  async function saveArtifact() {
+    if (!selectedArtifact || savingArtifact || !selectedArtifact.revision) return; setSavingArtifact(true);
+    try { const a = await api<Artifact>("/api/artifacts/" + selectedArtifact.id, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: artifactTitle, content: artifactDraft, revision: selectedArtifact.revision }) }); setSelectedArtifact(a); setArtifactDraft(a.content ?? ""); setArtifactTitle(a.title); setArtifacts(current => current.map(item => item.id === a.id ? a : item)); setNotice("Artifact saved, revision " + a.revision + ". Human edits are not automatically fact-checked."); }
+    catch (error) { reportError(error); } finally { setSavingArtifact(false); }
+  }
+  const composer = <form className={tasks.length ? "followup-composer" : "composer-wrap"} onSubmit={e => void submitTask(e)}>
+    <div className="composer-top"><span className="composer-dot" /><span>{labels[mode].description}</span><span className="composer-mode">{labels[mode].title}</span></div>
+    {mode === "analyze" && <label className="field-label">Input format <select aria-label="Input format" value={inputType} disabled={locked} onChange={e => setInputType(e.target.value as typeof inputType)}><option value="text">Text</option><option value="csv">CSV (header + rows)</option><option value="json">JSON</option></select></label>}
+    <textarea id="task-prompt" aria-label="Task prompt" rows={3} maxLength={4000} value={prompt} disabled={locked} placeholder={labels[mode].placeholder} onChange={e => setPrompt(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitTask(); } }} />
+    <div className="composer-bottom"><span className="composer-hint">{prompt.length}/4000 · Enter to send · Shift+Enter for newline</span><button className="send-button" type="submit" disabled={!usable || !prompt.trim() || locked} aria-label="Run task">{locked ? <span className="spinner" /> : "↑"}</button></div>
+    {!usable && <p className="setup-explanation">{!authenticated ? "Owner login required in Settings." : mode === "research" && workflow === "manual-brief" ? "Create/open a research project and add at least one permitted excerpt. URLs alone are not fetched." : "Selected mode requires a configured provider and verified free-only policy. See Settings."}</p>}
+  </form>;
+  return <div className="app-shell">
+    <aside className="sidebar">
+      <button className="brand" disabled={locked} onClick={() => newTask()} aria-label="Vestren home"><span className="brand-mark"><span /><span /><span /><span /></span><span className="brand-text"><span>Vestren</span><small>PERSONAL AI WORKSPACE</small></span></button>
+      <button className="new-task" disabled={locked} onClick={() => newTask()}>+ New task <kbd>Ctrl K</kbd></button>
+      <div className="nav-label">WORKSPACE</div>
+      <nav className="nav-list" aria-label="Workspace modes">{MODES.map(item => <button key={item} className={"nav-item " + (mode === item ? "active" : "")} aria-current={mode === item ? "page" : undefined} disabled={locked} onClick={() => newTask(item)}><span className="nav-icon">{labels[item].icon}</span>{labels[item].title}</button>)}</nav>
+      <div className="nav-label recent-label">SAVED PROJECTS</div>
+      <section className="history-list" aria-label="Saved projects">{history.length ? history.map(item => <button className="history-item" key={item.id} disabled={locked} onClick={() => { if (!allowDiscard()) return; setPrompt(""); void loadConversation(item.id).catch(reportError); }}>{item.title}</button>) : <p className="empty-history">{authenticated ? "No saved conversations yet." : "Login to reopen your work."}</p>}</section>
+      <div className="sidebar-bottom"><div className="usage-card"><div className="usage-heading">OWNER-ONLY WORKSPACE</div><p>{providers ? `${providers.usage.used}/${providers.usage.limit} app requests today` : "Provider setup required"}</p><small>No silent fallback. No code execution.</small></div><button className="settings-button" onClick={() => setSettingsOpen(true)}>Settings & providers</button><div className="sidebar-foot">VESTRENHQ · PRIVATE WORKBENCH</div></div>
+    </aside>
+    <main className="main-area" id="workspace">
+      <header className="topbar"><div className="breadcrumb">Workspace / <strong>{labels[mode].title}</strong></div><div className="topbar-right"><span className={"status-pill " + (usable ? "connected" : "")}>{usable ? mode === "research" && workflow === "manual-brief" ? "Manual evidence · no live retrieval" : "Configured · not smoke-tested" : "Setup required"}</span><button className="avatar" aria-label="Open settings" onClick={() => setSettingsOpen(true)}>M</button></div></header>
+      <div className={"work-canvas " + (tasks.length ? "conversation-mode" : "")}>
+        {mode === "research" && <section className="project-panel" aria-label="Research project"><h2>{activeTitle || "Research → brief → editable deliverable"}</h2><p className="result-limitations">Private owner workspace. Manual mode organizes your excerpts without fetching URLs or calling AI. Live mode requires separately verified providers.</p><label className="field-label">Evidence workflow <select aria-label="Evidence workflow" value={workflow} disabled={locked} onChange={e => setWorkflow(e.target.value as typeof workflow)}><option value="manual-brief">Provided excerpts — no live retrieval / AI</option><option value="provider">Live Tavily + inference — setup required</option></select></label><form onSubmit={e => void (conversationId ? renameProject(e) : createProject(e))}><label className="field-label" htmlFor="project-title">Project title</label><input id="project-title" className="token-input" value={projectTitle} maxLength={120} disabled={locked} onChange={e => setProjectTitle(e.target.value)} /><button className="secondary-button" disabled={!authenticated || !projectTitle.trim() || locked}>{conversationId ? "Rename project" : "Create research project"}</button></form>{conversationId && <><button className="secondary-button" disabled={locked} onClick={() => void deleteConversation()}>Delete project</button><section className="source-panel" aria-label="Project source ledger"><h3>Owner-provided evidence ({projectSources.length}/5)</h3>{projectSources.map(s => <article key={s.recordId ?? s.id}><strong>[{s.id}] {s.title}</strong>{s.url && <p><a href={s.url} target="_blank" rel="noopener noreferrer">{s.url}</a></p>}<small>provided-not-retrieved · supplied {s.providedAt} · retrieval timestamp: none</small><p>{s.evidence}</p>{s.recordId && <button className="secondary-button" disabled={locked} onClick={() => void removeSource(s.recordId!)}>Remove source {s.id}</button>}</article>)}</section><form onSubmit={e => void addSource(e)}><label className="field-label" htmlFor="source-title">Source title</label><input id="source-title" className="token-input" value={sourceTitle} maxLength={240} disabled={locked} onChange={e => setSourceTitle(e.target.value)} /><label className="field-label" htmlFor="source-url">Source URL (optional; not fetched)</label><input id="source-url" className="token-input" value={sourceUrl} maxLength={2048} disabled={locked} onChange={e => setSourceUrl(e.target.value)} /><label className="field-label" htmlFor="source-evidence">Permitted source excerpt / document text</label><textarea id="source-evidence" value={sourceEvidence} maxLength={2000} rows={4} disabled={locked} onChange={e => setSourceEvidence(e.target.value)} /><button className="secondary-button" disabled={locked || projectSources.length >= 5 || !sourceTitle.trim() || !sourceEvidence.trim()}>Add supplied evidence</button></form></>}</section>}
+        {!tasks.length ? <section className="welcome"><div className="eyebrow">YOUR WORK, ONE WORKSPACE</div><h1>A question. A <span>traceable brief.</span><br />A clear next step.</h1><button className="primary-button" disabled={locked} onClick={() => newTask("research")}>Start research project</button><p className="welcome-copy">Research with evidence. Create deliverables. Work through data.<br />Original tools, transparent limits, and your saved work.</p>{composer}<div className="starter-head">START WITH A WORKFLOW</div><div className="starter-grid">{MODES.filter(m => m !== "chat").map((item, i) => <button className="starter-card" disabled={locked} key={item} onClick={() => newTask(item)}><span className={"starter-icon color-" + i}>{labels[item].icon}</span><span className="starter-text"><strong>{labels[item].title}</strong><small>{labels[item].description}</small></span></button>)}</div><p className="principles">No invented sources · No paid fallback · No demo presented as live AI</p></section> : <section className="conversation"><header className="conversation-title"><div className="eyebrow">{labels[mode].title.toUpperCase()}</div><h2>{activeTitle || tasks[0]?.prompt.slice(0, 90)}</h2><p>Persisted in D1 · Lazy 30-day retention · Single-owner access</p><button className="secondary-button" disabled={locked} onClick={() => void deleteConversation()}>Delete conversation</button></header><section className="message-stack" aria-label="Task results">{tasks.map(task => <article className="task-result" key={task.id}><p className="message-meta">You</p><pre>{task.prompt}</pre><p className="task-status">{task.status.toUpperCase()} · {task.provider} · {task.model}</p>{task.error ? <p role="alert">{task.error}. No paid fallback.</p> : <pre>{task.response || "Execution in progress. No result yet."}</pre>}{task.analysis != null && <details><summary>Deterministic input statistics</summary><pre>{JSON.stringify(task.analysis, null, 2)}</pre></details>}<p className="result-limitations">{task.notice}</p>{task.sources?.length > 0 && <section className="source-panel" aria-label="Source evidence"><h3>Evidence and provenance</h3>{task.sources.map(source => <article key={source.id}>{source.url ? <a href={source.url} target="_blank" rel="noopener noreferrer">[{source.id}] {source.title}</a> : <strong>[{source.id}] {source.title} (pasted document, no URL)</strong>}<small>{source.provider} · {source.status ?? "retrieved"} · {source.retrievedAt ?? "not retrieved"}</small><p>{source.evidence}</p></article>)}</section>}</article>)}</section>{composer}</section>}
+        {locked && <p role="status" className="working-state">{running ? "Server task running. Refreshing durable status…" : "Request pending. Search/inference have bounded timeouts; cancellation is not supported."}</p>}
+        {artifacts.length > 0 && <section className="artifact-panel" aria-label="Artifacts"><h2>Artifacts</h2>{artifacts.map(a => <button className="secondary-button" key={a.id} onClick={() => void viewArtifact(a.id)}>{a.title}</button>)}{selectedArtifact && <article><h3>{selectedArtifact.title}</h3><p>{selectedArtifact.created_at} · Markdown source; HTML export escapes all content. CSV exports a title/content record, not a spreadsheet.</p><p>Revision {selectedArtifact.revision ?? "unknown"}. Original run/evidence snapshots remain unchanged. Edits are not fact-checked. Save before export.</p><label className="field-label" htmlFor="artifact-title">Artifact title</label><input id="artifact-title" className="token-input" value={artifactTitle} maxLength={120} disabled={locked} onChange={e => setArtifactTitle(e.target.value)} /><label className="field-label" htmlFor="artifact-editor">Markdown brief editor</label><textarea id="artifact-editor" aria-label="Markdown brief editor" value={artifactDraft} maxLength={40000} rows={14} disabled={locked} onChange={e => setArtifactDraft(e.target.value)} /><button className="primary-button" disabled={locked || !selectedArtifact.revision || !artifactDraft.trim() || !artifactTitle.trim() || new TextEncoder().encode(artifactDraft).length > 64000} onClick={() => void saveArtifact()}>Save artifact edits</button><button className="secondary-button" onClick={() => void copyArtifact()}>Copy artifact</button>{["md", "json", "csv", "html"].map(f => <button className="secondary-button" key={f} disabled={savingArtifact || artifactDraft !== (selectedArtifact.content ?? "") || artifactTitle !== selectedArtifact.title} onClick={() => void downloadArtifact(f)}>Download {f.toUpperCase()}</button>)}</article>}</section>}
+        {notice && <p className="bottom-notice" role="status">{notice}</p>}<nav className="policy-links" aria-label="Product and trust pages"><a href="/privacy">Privacy</a><a href="/terms">Terms & limitations</a><a href="/pricing">Usage / pricing</a><a href="/support">Support</a><a href="/status">Release status</a></nav>
+      </div>
+    </main>
+    <dialog ref={dialog} className="settings-modal" onClose={() => { setSettingsOpen(false); setOwnerToken(""); }} aria-labelledby="settings-title"><header className="modal-header"><h2 id="settings-title">Settings & providers</h2><button className="icon-button" aria-label="Close settings" onClick={() => setSettingsOpen(false)}>×</button></header><p className="modal-copy">Single-owner access. Provider keys are configured only in server secrets. Login uses a separate application token, exchanged for an HttpOnly cookie; never stored in browser storage.</p>{!authenticated ? <form onSubmit={e => void login(e)}><label className="field-label" htmlFor="owner-token">Application owner token (not a provider API key)</label><input id="owner-token" className="token-input" type="password" autoComplete="off" maxLength={256} value={ownerToken} onChange={e => setOwnerToken(e.target.value)} required /><button className="primary-button" disabled={loginBusy || !ownerToken} type="submit">{loginBusy ? "Signing in…" : "Sign in"}</button></form> : <><section className="settings-row"><strong>{providers?.inference.provider} / {providers?.inference.model}</strong><span>Inference: {providers?.inference.configured ? "configured" : "missing"} · Policy: {providers?.inference.enabled ? "owner enabled" : "disabled"}</span><span>Tavily: {providers?.search.configured ? "configured" : "missing"} · Policy: {providers?.search.enabled ? "owner enabled" : "disabled"}</span><span>Usage: {providers?.usage.used}/{providers?.usage.limit} requests/day; search {providers?.usage.searchMonthUsed}/{providers?.usage.searchMonthLimit} per month</span><small>Configuration is NOT a live availability or account-balance check. Research uses excerpts only.</small></section><p className="settings-warning">{providers?.costPolicy}</p><p className="modal-copy">Unavailable: {providers?.disabled.join(", ")}. Analyze accepts pasted input only; Build generates text only.</p><button className="secondary-button" onClick={() => void refresh().then(() => setNotice("Configuration refreshed; no provider calls sent.")).catch(reportError)}>Refresh configuration</button><button className="primary-button" onClick={() => void logout()}>Log out</button></>}<p className="settings-footer">See docs/11_PROVIDER_CREDENTIALS_AND_SETUP.md. No public production deployment has been performed.</p>{settingsOpen && notice && <p role="status">{notice}</p>}</dialog>
+  </div>;
 }
