@@ -88,6 +88,12 @@ try {
   await page.goto(base,{waitUntil:'networkidle'}); await page.getByRole('region',{name:'Saved projects'}).getByRole('button',{name:'Reopened Pages fixture'}).click();
   await page.getByRole('region',{name:'Artifacts'}).getByRole('button',{name:edit.title}).click(); assert.equal(await page.getByRole('textbox',{name:'Markdown brief editor'}).inputValue(),edit.content);
   await page.reload(); await page.getByRole('button',{name:'Access & Security',exact:true}).click(); await page.getByRole('region',{name:'Access & Security',exact:true}).getByText('Access counters — VERIFIED').waitFor();
+  const contrast = await page.locator('.security-panel').evaluate(panel => {
+    const style = getComputedStyle(panel), rgb = value => value.match(/[\d.]+/g).slice(0,3).map(Number);
+    const luminance = value => rgb(value).map(n => n/255).map(n => n<=0.04045?n/12.92:((n+0.055)/1.055)**2.4).reduce((sum,n,i)=>sum+n*[0.2126,0.7152,0.0722][i],0);
+    const fg=luminance(style.color),bg=luminance(style.backgroundColor);return (Math.max(fg,bg)+0.05)/(Math.min(fg,bg)+0.05);
+  });
+  assert.ok(contrast>=4.5,'Security dashboard text contrast below WCAG AA');
   await page.screenshot({path:'.qa/pages-remote-desktop.png',fullPage:true}); await page.setViewportSize({width:390,height:844}); assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)); await page.screenshot({path:'.qa/pages-remote-mobile.png',fullPage:true}); assert.deepEqual(errors,[]); await bc.close(); await browser.close(); browser=undefined;
   assert.equal((await call('/api/projects/'+id,'DELETE')).status(),200); projectId=undefined; assert.equal((await call('/api/projects/'+id)).status(),404); assert.equal((await query('SELECT id FROM conversations WHERE id=?',[id])).length,0);
   pass('Actual Pages D1 write independently queried; manual brief/provenance/replay/CAS/all exports/reopen/browser/dashboard/mobile/delete');
