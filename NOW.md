@@ -16,9 +16,10 @@
 - `docs/16_COMMERCIAL_RELEASE_GATES.md` — evidence required before alpha, paid pilot, and public launch.
 - `docs/17_TRUST_PRIVACY_AND_OPERATIONS.md` — data inventory, privacy, security, incident response, and support.
 - `docs/18_COMMERCIAL_GAP_REGISTER.md` — prioritized stop-ship gaps and engineering order.
+- `docs/19_FREE_FIRST_BOOTSTRAP_AND_MONETIZATION.md` — free-first infrastructure, dogfooding phases, usage packs, and Duitku payment lifecycle.
 
 ## Immediate next action
-Build and verify one complete customer workflow: real sign-in → project persistence → live source retrieval with evidence → editable/exportable brief → usage limits → deletion. Treat Daytona Build execution as a separate capability until the real adapter is located/integrated and bounded smoke tests pass.
+Implement the first end-to-end workflow using the lowest safe-cost infrastructure: real sign-in → project persistence → live source retrieval with evidence → editable/exportable brief → usage limits → deletion. Dogfood before inviting customers. Keep all integrations capped; add Duitku as a server-side payment adapter only after merchant environment, callback verification, idempotency, and entitlement logic are tested. Treat Daytona Build execution as a separate capability until the real adapter is located/integrated and bounded smoke tests pass.
 
 ## Known blockers to verify
 - Worker currently states live web search and file upload are not enabled.
