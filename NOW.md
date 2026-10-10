@@ -23,6 +23,7 @@
 - `docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md` — support intake, severity, billing, and incident handling.
 - `docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md` — local QA, Cloudflare preflight, manual deploy, and rollback evidence.
 - `docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md` — north-star metric, event vocabulary, and experiment logging.
+- `docs/26_MASTER_IMPLEMENTATION_SYSTEM_PROMPT.md` — phase-gated implementation instructions, safety invariants, and manual release rules.
 
 ## Immediate next action
 Implement and verify the first end-to-end workflow using the lowest safe-cost infrastructure: real sign-in → project persistence → live source retrieval with evidence → editable/exportable brief → usage limits → deletion. Dogfood before inviting customers. Keep all integrations capped; add Duitku as a server-side payment adapter only after merchant environment, callback verification, idempotency, and entitlement logic are tested. Treat Daytona Build execution as a separate capability until the real adapter is located/integrated and bounded smoke tests pass.
