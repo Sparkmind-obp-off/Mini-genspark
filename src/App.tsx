@@ -66,7 +66,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [health, setHealth] = useState<ProviderHealth | null>(null);
   const [ownerToken, setOwnerToken] = useState(() => {
-    try { return sessionStorage.getItem("mini-genspark-owner-token") ?? ""; } catch { return ""; }
+    try { return sessionStorage.getItem("vestren-owner-token") ?? sessionStorage.getItem("mini-genspark-owner-token") ?? ""; } catch { return ""; }
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -88,7 +88,8 @@ export default function App() {
 
   function saveToken() {
     try {
-      sessionStorage.setItem("mini-genspark-owner-token", ownerToken.trim());
+      sessionStorage.setItem("vestren-owner-token", ownerToken.trim());
+      sessionStorage.removeItem("mini-genspark-owner-token");
       setNotice(ownerToken.trim() ? "Owner token saved to this browser tab's session storage." : "Owner token cleared.");
     } catch {
       setNotice("Could not save token in this browser session.");
@@ -116,7 +117,7 @@ export default function App() {
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-mini-owner-token": ownerToken.trim() },
+        headers: { "content-type": "application/json", "x-vestren-owner-token": ownerToken.trim() },
         body: JSON.stringify({ mode, messages: nextMessages.map(({ role, content: messageContent }) => ({ role, content: messageContent })) })
       });
       const result = await response.json() as ApiResponse;
@@ -259,7 +260,7 @@ export default function App() {
             <label className="field-label" htmlFor="owner-token">Owner access token</label>
             <input id="owner-token" className="token-input" type="password" autoComplete="off" value={ownerToken} onChange={(event) => setOwnerToken(event.target.value)} placeholder="Paste the OWNER_ACCESS_TOKEN set as a server secret" />
             <div className="settings-warning"><strong>Private preview only.</strong> Do not deploy publicly without real user authentication, quota enforcement, and access controls. Never paste a Cloudflare API token here—this field is only for the application-specific owner token.</div>
-            <div className="settings-actions"><button className="secondary-button" onClick={() => { setOwnerToken(""); sessionStorage.removeItem("mini-genspark-owner-token"); setNotice("Owner token cleared."); }}>Clear token</button><button className="primary-button" onClick={saveToken}>Save for this tab</button></div>
+            <div className="settings-actions"><button className="secondary-button" onClick={() => { setOwnerToken(""); sessionStorage.removeItem("vestren-owner-token"); sessionStorage.removeItem("mini-genspark-owner-token"); setNotice("Owner token cleared."); }}>Clear token</button><button className="primary-button" onClick={saveToken}>Save for this tab</button></div>
             <div className="settings-footer">{health ? "API status: " + (health.status ?? "reachable") + " · Live research: " + (health.liveResearch ? "enabled" : "not connected") + " · Code execution: " + (health.codeExecution ? "enabled" : "disabled") : "API status: unavailable or not started."}</div>
           </section>
         </div>
