@@ -86,3 +86,15 @@ Every week record:
 - next experiment and a single owner.
 
 The primary milestone is not “launch the website.” It is repeatable customer value with sustainable costs and a credible reason to pay.
+
+
+
+## Operational references
+
+- Customer discovery and ICP evidence: docs/20_ICP_AND_CUSTOMER_DISCOVERY.md.
+- Landing page and substantiated claims: docs/21_POSITIONING_AND_LANDING_PAGE.md.
+- Staged outreach, pilot and beta: docs/22_GO_TO_MARKET_EXECUTION_PLAYBOOK.md.
+- Support, refunds and customer success: docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md.
+- Metrics and experiment logging: docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md.
+
+These documents do not prove the product, pricing, payment integration, or demand has been validated. Record actual observations and dates before a go/no-go decision.
