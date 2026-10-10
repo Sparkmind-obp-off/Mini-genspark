@@ -14,6 +14,8 @@ for (const guard of ['OWNER_TOKEN_NOT_CONFIGURED','IDEMPOTENCY_CONFLICT','ORIGIN
 assert.ok(readFileSync('src/workspace.ts','utf8').includes('ARTIFACT_REVISION_CONFLICT'),'Optimistic edit conflicts required');
 const patterns = [/apify_api_[a-zA-Z0-9]{20,}/,/fc-[a-f0-9]{32}/,/tvly-(?:dev|prod)-[a-zA-Z0-9_-]{20,}/,/dtn_[a-f0-9]{40,}/,/gh[pousr]_[a-zA-Z0-9]{30,}/,/sk-(?:proj-)?[a-zA-Z0-9_-]{40,}/];
 const secretValues = existsSync('.dev.vars') ? readFileSync('.dev.vars','utf8').split('\n').filter(line=>/^(?:OWNER_ACCESS_TOKEN|.*_API_KEY|.*_TOKEN|.*_SECRET)=/.test(line)).map(line=>line.slice(line.indexOf('=')+1).trim()).filter(value=>value.length>=20) : [];
+for(const file of ['.qa/remote-owner-token.raw','.qa/recovery-owner-token.raw']) if(existsSync(file)) { const value=readFileSync(file,'utf8').trim(); if(value.length>=32) secretValues.push(value); }
+if(process.env.CLOUDFLARE_API_TOKEN?.length>=20) secretValues.push(process.env.CLOUDFLARE_API_TOKEN);
 let files=0;
 function check(text, label) { assert.ok(!patterns.some(p=>p.test(text)) && !secretValues.some(value=>text.includes(value)),'Possible secret detected; value suppressed: '+label); }
 function scan(dir) { for (const entry of readdirSync(dir,{withFileTypes:true})) { const path=dir+'/'+entry.name; if(entry.isDirectory())scan(path); else if(/\.(?:js|mjs|ts|tsx|html|css|md|json|jsonc|sql|yml)$/.test(path)){check(readFileSync(path,'utf8'),path);files++;} } }
