@@ -1,6 +1,6 @@
 # VestrenHQ — Cloudflare Workers Manual Release Runbook
 
-**Binding operating rule:** use the repository and local terminal for implementation and QA, GitHub for versioned source and push, and Cloudflare Workers/Wrangler for runtime and deployment. No Cursor-specific dependency. Do not use GitHub Actions or GitHub CI.
+**Binding operating rule:** use the repository and local terminal for implementation and QA, GitHub for versioned source and push, and Cloudflare Workers/Wrangler for runtime and deployment. Do not use GitHub Actions or GitHub CI.
 
 ## Tool responsibilities
 - Development environment: edit code, inspect repository, run terminal commands, review diffs, and work against explicit acceptance criteria. Tool suggestions are not proof that code works.
