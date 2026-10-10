@@ -4,7 +4,7 @@
 
 - **Canonical repo:** Sparkmind-obp-off/Vestrenhq
 - **Active branch:** feat/commercial-foundation-cloudflare-daytona
-- **Operating model:** GitHub branch/commit/push; no Cursor dependency; no GitHub Actions/CI; local QA + manual Cloudflare Wrangler release.
+- **Operating model:** GitHub branch/commit/push; no GitHub Actions/CI; local QA + manual Cloudflare Wrangler release.
 - **Selected sandbox:** Daytona; no E2B substitution without explicit decision.
 - **Commercial wedge:** evidence-backed research brief → editable action deliverable for solo operators and small teams. This is a hypothesis until validated with real users.
 - **Current release status:** development/prototype; not yet ready to claim public paid launch.
