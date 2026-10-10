@@ -36,7 +36,7 @@ export default function App() {
   const running = tasks.some(t => t.status === "running"); const locked = busy || running || savingArtifact;
   function clearPrivateView() {
     authEpoch.current += 1; submitLock.current = false; mutationLock.current = false;
-    setAuthenticated(false); setProviders(null); setHistory([]); setTasks([]); setArtifacts([]); setSelectedArtifact(null); setProjectSources([]); setConversationId(undefined); setPrompt(""); setOwnerToken(""); setActiveTitle(""); setProjectTitle(""); setSourceTitle(""); setSourceUrl(""); setSourceEvidence(""); setArtifactDraft(""); setArtifactTitle(""); setBusy(false); setSavingArtifact(false); retry.current = undefined;
+    setAuthenticated(false); setProviders(null); setHistory([]); setTasks([]); setArtifacts([]); setSelectedArtifact(null); setProjectSources([]); setConversationId(undefined); setPrompt(""); setOwnerToken(""); setActiveTitle(""); setProjectTitle(""); setSourceTitle(""); setSourceUrl(""); setSourceEvidence(""); setArtifactDraft(""); setArtifactTitle(""); setBusy(false); setSavingArtifact(false); setLoginBusy(false); retry.current = undefined;
   }
   function reportError(error: unknown) {
     if (error instanceof ApiError && error.status === 401) {
