@@ -56,6 +56,8 @@ Implementation commit/push results and final SHA are recorded after actual git o
 
 ## Current session update — direct main / private preview — 2026-10-10
 
+- **Latest verified GitHub main SHA:** `b5af1e0570ad963144fe9b3f407925d29b95430b` (confirmed from the live branch ref after all direct commits in this session). Changes are committed/pushed to `main`; no new PR was opened.
+
 - **Operating direction:** routine code changes directly to `main`, no new PRs/branches, no GitHub Actions. Existing PR #4 and #5 are already merged.
 - **Latest work:** `src/App.tsx` now invalidates stale in-flight private UI requests at logout; `src/worker.ts` requires a persisted project before task reservation; regression tests added to `src/App.test.tsx` and `src/worker.test.ts`.
 - **Resource naming:** Worker and D1 target renamed in Wrangler to `vestrenhq-private-preview`; local D1 migration script aligned. **The D1 ID remains placeholder and must be replaced with the real ID from Cloudflare.**
