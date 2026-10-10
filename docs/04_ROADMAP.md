@@ -96,3 +96,4 @@ Primary workflow: business/product question → real source retrieval → eviden
 - Startup/monetization: docs/13_COMMERCIAL_STARTUP_BLUEPRINT.md, docs/15_PRICING_AND_GO_TO_MARKET.md, docs/19_FREE_FIRST_BOOTSTRAP_AND_MONETIZATION.md.
 - Release/trust/gaps: docs/16_COMMERCIAL_RELEASE_GATES.md, docs/17_TRUST_PRIVACY_AND_OPERATIONS.md, docs/18_COMMERCIAL_GAP_REGISTER.md.
 - Market/distribution/operations: docs/20_ICP_AND_CUSTOMER_DISCOVERY.md through docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md.
+- Implementation agent instructions: docs/26_MASTER_IMPLEMENTATION_SYSTEM_PROMPT.md.
