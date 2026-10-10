@@ -24,7 +24,7 @@ type ApiResponse = {
 };
 
 const modeLabels: Record<Mode, { title: string; description: string; icon: string; placeholder: string }> = {
-  chat: { title: "Chat", description: "Think through an idea", icon: "✳", placeholder: "Ask Mini Genspark anything…" },
+  chat: { title: "Chat", description: "Think through an idea", icon: "✳", placeholder: "Ask Vestren anything…" },
   research: { title: "Research", description: "Work with evidence", icon: "⌕", placeholder: "What do you need to research? Live web search is not connected yet." },
   create: { title: "Create", description: "Turn thoughts into a deliverable", icon: "▤", placeholder: "Draft a document, proposal, or plan…" },
   analyze: { title: "Analyze", description: "Reason through data and questions", icon: "▥", placeholder: "Paste the figures or data you want to analyze…" },
@@ -66,7 +66,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [health, setHealth] = useState<ProviderHealth | null>(null);
   const [ownerToken, setOwnerToken] = useState(() => {
-    try { return sessionStorage.getItem("mini-genspark-owner-token") ?? ""; } catch { return ""; }
+    try { return sessionStorage.getItem("vestren-owner-token") ?? sessionStorage.getItem("mini-genspark-owner-token") ?? ""; } catch { return ""; }
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -88,7 +88,8 @@ export default function App() {
 
   function saveToken() {
     try {
-      sessionStorage.setItem("mini-genspark-owner-token", ownerToken.trim());
+      sessionStorage.setItem("vestren-owner-token", ownerToken.trim());
+      sessionStorage.removeItem("mini-genspark-owner-token");
       setNotice(ownerToken.trim() ? "Owner token saved to this browser tab's session storage." : "Owner token cleared.");
     } catch {
       setNotice("Could not save token in this browser session.");
@@ -116,7 +117,7 @@ export default function App() {
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-mini-owner-token": ownerToken.trim() },
+        headers: { "content-type": "application/json", "x-vestren-owner-token": ownerToken.trim() },
         body: JSON.stringify({ mode, messages: nextMessages.map(({ role, content: messageContent }) => ({ role, content: messageContent })) })
       });
       const result = await response.json() as ApiResponse;
@@ -148,9 +149,9 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <button className="brand" onClick={newTask} aria-label="Mini Genspark home">
+        <button className="brand" onClick={newTask} aria-label="Vestren home">
           <span className="brand-mark"><span /><span /><span /><span /></span>
-          <span className="brand-text">mini<span>genspark</span><small>PERSONAL AI WORKSPACE</small></span>
+          <span className="brand-text"><span>Vestren</span><small>PERSONAL AI WORKSPACE</small></span>
         </button>
         <button className="new-task" onClick={newTask}><span>＋</span> New task <kbd>⌘ K</kbd></button>
         <div className="nav-label">WORKSPACE</div>
@@ -177,7 +178,7 @@ export default function App() {
             <small>{configured ? "Owner-only API · capped requests" : "No external AI request is sent"}</small>
           </div>
           <button className="settings-button" onClick={() => setSettingsOpen(true)}><span>⚙</span> Settings & provider</button>
-          <div className="sidebar-foot"><span>MINI GENSPARK V0.1</span><span className="foot-dot" /> FREE-FIRST</div>
+          <div className="sidebar-foot"><span>VESTREN · V0.1</span><span className="foot-dot" /> FREE-FIRST</div>
         </div>
       </aside>
 
@@ -233,7 +234,7 @@ export default function App() {
                 {messages.map((message) => (
                   <article className={"message message-" + message.role} key={message.id}>
                     <div className="message-avatar">{message.role === "user" ? "Y" : <span className="mini-mark">✳</span>}</div>
-                    <div className="message-body"><div className="message-meta">{message.role === "user" ? "You" : "Mini Genspark"}</div><pre>{message.content}</pre></div>
+                    <div className="message-body"><div className="message-meta">{message.role === "user" ? "You" : "Vestren"}</div><pre>{message.content}</pre></div>
                   </article>
                 ))}
                 {busy && <div className="working-state"><span className="spinner" /> Working within configured limits…</div>}
@@ -252,14 +253,14 @@ export default function App() {
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
           <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
             <div className="modal-header"><div><div className="eyebrow">OWNER CONFIGURATION</div><h2 id="settings-title">Settings & provider</h2></div><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">×</button></div>
-            <p className="modal-copy">Mini Genspark uses a server-side Cloudflare Workers AI binding. The owner token is sent in a request header and kept only in this browser tab's session storage.</p>
+            <p className="modal-copy">Vestren uses a server-side Cloudflare Workers AI binding. The owner token is sent in a request header and kept only in this browser tab's session storage.</p>
             <div className="settings-row"><span>Runtime provider</span><strong>Cloudflare Workers AI</strong><small>{health?.aiBindingConfigured ? "Binding detected" : "Not detected by the API"}</small></div>
             <div className="settings-row"><span>Free-tier guard</span><strong>{health?.freePlanConfirmed ? "Owner confirmed Workers Free" : "Disabled until confirmed"}</strong><small>Do not enable if this Cloudflare account can bill usage beyond its free allocation.</small></div>
             <div className="settings-row"><span>Model</span><strong>{health?.model ?? "@cf/meta/llama-3.1-8b-instruct-fp8-fast"}</strong><small>Model availability and billing eligibility must be checked on your Cloudflare account.</small></div>
             <label className="field-label" htmlFor="owner-token">Owner access token</label>
             <input id="owner-token" className="token-input" type="password" autoComplete="off" value={ownerToken} onChange={(event) => setOwnerToken(event.target.value)} placeholder="Paste the OWNER_ACCESS_TOKEN set as a server secret" />
             <div className="settings-warning"><strong>Private preview only.</strong> Do not deploy publicly without real user authentication, quota enforcement, and access controls. Never paste a Cloudflare API token here—this field is only for the application-specific owner token.</div>
-            <div className="settings-actions"><button className="secondary-button" onClick={() => { setOwnerToken(""); sessionStorage.removeItem("mini-genspark-owner-token"); setNotice("Owner token cleared."); }}>Clear token</button><button className="primary-button" onClick={saveToken}>Save for this tab</button></div>
+            <div className="settings-actions"><button className="secondary-button" onClick={() => { setOwnerToken(""); sessionStorage.removeItem("vestren-owner-token"); sessionStorage.removeItem("mini-genspark-owner-token"); setNotice("Owner token cleared."); }}>Clear token</button><button className="primary-button" onClick={saveToken}>Save for this tab</button></div>
             <div className="settings-footer">{health ? "API status: " + (health.status ?? "reachable") + " · Live research: " + (health.liveResearch ? "enabled" : "not connected") + " · Code execution: " + (health.codeExecution ? "enabled" : "disabled") : "API status: unavailable or not started."}</div>
           </section>
         </div>

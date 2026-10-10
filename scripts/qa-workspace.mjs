@@ -44,6 +44,6 @@ assert.ok(app.includes("sessionStorage"), "Owner token must not be placed in com
 assert.ok(readme.includes("09_SELF_USE_AND_MONETIZATION.md"), "README must link to monetization plan.");
 assert.ok(readme.includes("docs/10_LOCAL_SETUP.md"), "README must link to setup docs.");
 
-console.log("Mini Genspark repository QA: PASS");
+console.log("Vestren workspace QA: PASS");
 console.log("Checks: required files, provider binding, free-plan gate, daily quota gate, owner-token gate, honest demo mode, and docs links.");
 console.log("This is static repository QA only; it does not prove the app compiles or a live provider call succeeds.");
