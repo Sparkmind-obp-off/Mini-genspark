@@ -128,3 +128,16 @@ An upgrade is approved only when all are true:
 ## 9. Definition of bootstrap success
 
 Bootstrap succeeds when Vestren can reliably deliver one useful workflow, users return for another real task, at least one customer pays or commits credibly to paying, costs are understood, and the system can pause safely at quota. It does not mean every feature is free forever or that the full general-purpose workspace is already complete.
+
+
+
+## Execution references
+
+- Use docs/20 to validate the initial buyer and job before committing to a public ICP.
+- Use docs/21 for the landing page and evidence-backed marketing claims.
+- Use docs/22 for dogfood, design-partner, paid-pilot, and beta stages.
+- Use docs/23 for customer support, billing issues, refunds, and incidents.
+- Use docs/24 for Cursor/local QA and manual Cloudflare Wrangler release.
+- Use docs/25 to measure useful artifacts, repeat use, cost, and experiments.
+
+Free-first does not mean cost-free or safe by default. Confirm actual account limits, provider terms, quotas, and cost ceilings. No customer payment or public launch until the relevant gates are evidenced.
