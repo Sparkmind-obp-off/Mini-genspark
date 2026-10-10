@@ -26,6 +26,7 @@ Read:
 - [Commercial Release Gates](docs/16_COMMERCIAL_RELEASE_GATES.md)
 - [Trust, Privacy, and Operations](docs/17_TRUST_PRIVACY_AND_OPERATIONS.md)
 - [Commercial Gap Register](docs/18_COMMERCIAL_GAP_REGISTER.md)
+- [Free-First Bootstrap and Monetization](docs/19_FREE_FIRST_BOOTSTRAP_AND_MONETIZATION.md)
 - [Product Constitution](docs/00_VESTREN_PRODUCT_CONSTITUTION.md)
 - [Architecture](docs/03_ARCHITECTURE.md)
 - [Roadmap and acceptance criteria](docs/04_ROADMAP.md)
