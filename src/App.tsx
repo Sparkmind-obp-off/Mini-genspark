@@ -35,7 +35,7 @@ export default function App() {
   const usable = mode === "research" && workflow === "manual-brief" ? Boolean(authenticated && conversationId && projectSources.length) : Boolean(authenticated && providers?.inference.configured && providers.inference.enabled && (mode !== "research" || (providers.search.configured && providers.search.enabled)));
   const running = tasks.some(t => t.status === "running"); const locked = busy || running || savingArtifact;
   function clearPrivateView() {
-    authEpoch.current += 1; submitLock.current = false;
+    authEpoch.current += 1; submitLock.current = false; mutationLock.current = false;
     setAuthenticated(false); setProviders(null); setHistory([]); setTasks([]); setArtifacts([]); setSelectedArtifact(null); setProjectSources([]); setConversationId(undefined); setPrompt(""); setOwnerToken(""); setActiveTitle(""); setProjectTitle(""); setSourceTitle(""); setSourceUrl(""); setSourceEvidence(""); setArtifactDraft(""); setArtifactTitle(""); setBusy(false); setSavingArtifact(false); retry.current = undefined;
   }
   function reportError(error: unknown) {
@@ -105,18 +105,20 @@ export default function App() {
   }
   async function deleteConversation() {
     if (!conversationId || locked || !window.confirm("Delete this conversation, tasks and artifacts? Usage counters will not reset.")) return;
-    try { await api("/api/conversations/" + conversationId, { method: "DELETE" }); newTask(); await refresh(); setNotice("Conversation deleted; usage counters retained."); }
-    catch (error) { reportError(error); }
+    const epoch = authEpoch.current;
+    try { await api("/api/conversations/" + conversationId, { method: "DELETE" }); if (epoch !== authEpoch.current) return; newTask(); await refresh(); if (epoch === authEpoch.current) setNotice("Conversation deleted; usage counters retained."); }
+    catch (error) { if (epoch === authEpoch.current) reportError(error); }
   }
-  async function viewArtifact(id: string) { if (!allowDiscard()) return; try { const artifact = await api<Artifact>("/api/artifacts/" + id); setSelectedArtifact(artifact); setArtifactDraft(artifact.content ?? ""); setArtifactTitle(artifact.title); } catch (error) { reportError(error); } }
+  async function viewArtifact(id: string) { if (!allowDiscard()) return; const epoch = authEpoch.current; try { const artifact = await api<Artifact>("/api/artifacts/" + id); if (epoch !== authEpoch.current) return; setSelectedArtifact(artifact); setArtifactDraft(artifact.content ?? ""); setArtifactTitle(artifact.title); } catch (error) { if (epoch === authEpoch.current) reportError(error); } }
   async function copyArtifact() { try { await navigator.clipboard.writeText(artifactDraft); setNotice("Artifact copied."); } catch { setNotice("Clipboard permission unavailable. Select and copy the preview text manually."); } }
   async function downloadArtifact(format: string) {
-    if (!selectedArtifact) return;
+    if (!selectedArtifact) return; const epoch = authEpoch.current; const artifactId = selectedArtifact.id;
     try {
-      const response = await fetch(`/api/artifacts/${selectedArtifact.id}?format=${format}`, { credentials: "same-origin" });
+      const response = await fetch(`/api/artifacts/${artifactId}?format=${format}`, { credentials: "same-origin" });
       if (!response.ok) throw new ApiError(response.status, "Download failed. Check session and format.");
-      const objectUrl = URL.createObjectURL(await response.blob()); const link = document.createElement("a"); link.href = objectUrl; link.download = `vestren-${selectedArtifact.id}.${format}`; link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000); setNotice("Artifact downloaded: " + format);
-    } catch (error) { reportError(error); }
+      const blob = await response.blob(); if (epoch !== authEpoch.current) return;
+      const objectUrl = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = objectUrl; link.download = `vestren-${artifactId}.${format}`; link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000); setNotice("Artifact downloaded: " + format);
+    } catch (error) { if (epoch === authEpoch.current) reportError(error); }
   }
   const mutationLock = useRef(false); const createRequest = useRef<{ title: string; id: string } | null>(null);
   function beginMutation() { if (mutationLock.current || locked) return false; mutationLock.current = true; setBusy(true); return true; }
