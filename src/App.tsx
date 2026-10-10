@@ -61,7 +61,8 @@ export default function App() {
   useEffect(() => {
     // Remove legacy browser credential persistence without reading its value.
     try { sessionStorage.removeItem("vestren-owner-token"); sessionStorage.removeItem("mini-genspark-owner-token"); } catch { /* Storage may be disabled; no credential persistence is used. */ }
-    api("/api/session").then(() => { setAuthenticated(true); return refresh(); }).catch(() => setNotice("Owner login required. Configure runtime secrets through the setup guide; never enter provider keys in this browser."));
+    const epoch = authEpoch.current;
+    api("/api/session").then(() => { if (epoch !== authEpoch.current) return; setAuthenticated(true); return refresh(); }).catch(() => { if (epoch === authEpoch.current) setNotice("Owner login required. Configure runtime secrets through the setup guide; never enter provider keys in this browser."); });
   }, []);
   useEffect(() => { if (settingsOpen) dialog.current?.showModal(); else dialog.current?.close(); }, [settingsOpen]);
   useEffect(() => {
@@ -119,32 +120,35 @@ export default function App() {
   }
   const mutationLock = useRef(false); const createRequest = useRef<{ title: string; id: string } | null>(null);
   function beginMutation() { if (mutationLock.current || locked) return false; mutationLock.current = true; setBusy(true); return true; }
-  function finishMutation() { mutationLock.current = false; setBusy(false); }
+  function finishMutation(epoch?: number) { if (epoch !== undefined && epoch !== authEpoch.current) return; mutationLock.current = false; setBusy(false); }
   async function createProject(e: React.FormEvent) {
     e.preventDefault(); if (!authenticated || !projectTitle.trim() || !beginMutation()) return;
-    const name = projectTitle.trim(); const id = createRequest.current?.title === name ? createRequest.current.id : crypto.randomUUID(); createRequest.current = { title: name, id };
-    try { const p = await api<{ id: string }>("/api/projects", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": id }, body: JSON.stringify({ title: name }) }); await loadConversation(p.id); await refresh(); createRequest.current = null; setNotice("Project saved. Add permitted excerpts; URLs are not fetched in manual mode."); }
-    catch (error) { reportError(error); } finally { finishMutation(); }
+    const epoch = authEpoch.current; const name = projectTitle.trim(); const id = createRequest.current?.title === name ? createRequest.current.id : crypto.randomUUID(); createRequest.current = { title: name, id };
+    try { const p = await api<{ id: string }>("/api/projects", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": id }, body: JSON.stringify({ title: name }) }); if (epoch !== authEpoch.current) return; await loadConversation(p.id); if (epoch !== authEpoch.current) return; await refresh(); if (epoch !== authEpoch.current) return; createRequest.current = null; setNotice("Project saved. Add permitted excerpts; URLs are not fetched in manual mode."); }
+    catch (error) { if (epoch === authEpoch.current) reportError(error); } finally { finishMutation(epoch); }
   }
   async function renameProject(e: React.FormEvent) {
     e.preventDefault(); if (!conversationId || !projectTitle.trim() || !beginMutation()) return;
-    try { await api("/api/projects/" + conversationId, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: projectTitle.trim() }) }); setActiveTitle(projectTitle.trim()); await refresh(); setNotice("Project renamed."); }
-    catch (error) { reportError(error); } finally { finishMutation(); }
+    const epoch = authEpoch.current;
+    try { await api("/api/projects/" + conversationId, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: projectTitle.trim() }) }); if (epoch !== authEpoch.current) return; setActiveTitle(projectTitle.trim()); await refresh(); if (epoch === authEpoch.current) setNotice("Project renamed."); }
+    catch (error) { if (epoch === authEpoch.current) reportError(error); } finally { finishMutation(epoch); }
   }
   async function addSource(e: React.FormEvent) {
     e.preventDefault(); if (!conversationId || !allowDiscard() || !beginMutation()) return;
-    try { await api("/api/projects/" + conversationId + "/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: sourceTitle, url: sourceUrl, evidence: sourceEvidence }) }); await loadConversation(conversationId); setSourceTitle(""); setSourceUrl(""); setSourceEvidence(""); setNotice("Excerpt saved as owner-provided, not retrieved or independently verified."); }
-    catch (error) { reportError(error); } finally { finishMutation(); }
+    const epoch = authEpoch.current;
+    try { await api("/api/projects/" + conversationId + "/sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: sourceTitle, url: sourceUrl, evidence: sourceEvidence }) }); if (epoch !== authEpoch.current) return; await loadConversation(conversationId); if (epoch !== authEpoch.current) return; setSourceTitle(""); setSourceUrl(""); setSourceEvidence(""); setNotice("Excerpt saved as owner-provided, not retrieved or independently verified."); }
+    catch (error) { if (epoch === authEpoch.current) reportError(error); } finally { finishMutation(epoch); }
   }
   async function removeSource(id: string) {
     if (!conversationId || !allowDiscard() || !beginMutation()) return;
-    try { await api(`/api/projects/${conversationId}/sources/${id}`, { method: "DELETE" }); await loadConversation(conversationId); setNotice("Source removed from future briefs. Existing run snapshots remain until project deletion or retention cleanup."); }
-    catch (error) { reportError(error); } finally { finishMutation(); }
+    const epoch = authEpoch.current;
+    try { await api(`/api/projects/${conversationId}/sources/${id}`, { method: "DELETE" }); if (epoch !== authEpoch.current) return; await loadConversation(conversationId); if (epoch === authEpoch.current) setNotice("Source removed from future briefs. Existing run snapshots remain until project deletion or retention cleanup."); }
+    catch (error) { if (epoch === authEpoch.current) reportError(error); } finally { finishMutation(epoch); }
   }
   async function saveArtifact() {
-    if (!selectedArtifact || savingArtifact || !selectedArtifact.revision) return; setSavingArtifact(true);
-    try { const a = await api<Artifact>("/api/artifacts/" + selectedArtifact.id, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: artifactTitle, content: artifactDraft, revision: selectedArtifact.revision }) }); setSelectedArtifact(a); setArtifactDraft(a.content ?? ""); setArtifactTitle(a.title); setArtifacts(current => current.map(item => item.id === a.id ? a : item)); setNotice("Artifact saved, revision " + a.revision + ". Human edits are not automatically fact-checked."); }
-    catch (error) { reportError(error); } finally { setSavingArtifact(false); }
+    if (!selectedArtifact || savingArtifact || !selectedArtifact.revision) return; const epoch = authEpoch.current; setSavingArtifact(true);
+    try { const a = await api<Artifact>("/api/artifacts/" + selectedArtifact.id, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: artifactTitle, content: artifactDraft, revision: selectedArtifact.revision }) }); if (epoch !== authEpoch.current) return; setSelectedArtifact(a); setArtifactDraft(a.content ?? ""); setArtifactTitle(a.title); setArtifacts(current => current.map(item => item.id === a.id ? a : item)); setNotice("Artifact saved, revision " + a.revision + ". Human edits are not automatically fact-checked."); }
+    catch (error) { if (epoch === authEpoch.current) reportError(error); } finally { if (epoch === authEpoch.current) setSavingArtifact(false); }
   }
   const composer = <form className={tasks.length ? "followup-composer" : "composer-wrap"} onSubmit={e => void submitTask(e)}>
     <div className="composer-top"><span className="composer-dot" /><span>{labels[mode].description}</span><span className="composer-mode">{labels[mode].title}</span></div>
