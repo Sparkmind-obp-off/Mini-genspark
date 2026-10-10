@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "dev:worker": "wrangler dev --local",
-    "db:migrate:local": "wrangler d1 migrations apply mini-genspark --local",
+    "db:migrate:local": "wrangler d1 migrations apply vestrenhq-private-preview --local",
     "qa": "node scripts/qa-workspace.mjs",
     "test": "vitest run --maxWorkers=1",
     "test:browser": "node scripts/browser-acceptance.mjs",
