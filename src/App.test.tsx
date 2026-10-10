@@ -74,6 +74,7 @@ describe("React workflows with deterministic mocked API", () => {
     await waitFor(() => expect(releaseProject).toBeTypeOf("function"));
     fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
     await screen.findByLabelText("Application owner token (not a provider API key)");
     releaseProject(new Response(JSON.stringify({ title: "Private project", mode: "research", tasks: [fixture], artifacts: [], sources: [] })));
     await waitFor(() => expect(screen.queryByText("Private project")).toBeNull());
