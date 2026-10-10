@@ -33,6 +33,7 @@ Read:
 - [Customer Support and Success Runbook](docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md)
 - [Cloudflare Workers Manual Release Runbook](docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md)
 - [Product Metrics and Experiment Log](docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md)
+- [Master Implementation System Prompt](docs/26_MASTER_IMPLEMENTATION_SYSTEM_PROMPT.md)
 - [Product Constitution](docs/00_VESTREN_PRODUCT_CONSTITUTION.md)
 - [Architecture](docs/03_ARCHITECTURE.md)
 - [Roadmap and acceptance criteria](docs/04_ROADMAP.md)
