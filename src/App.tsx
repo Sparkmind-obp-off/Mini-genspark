@@ -31,11 +31,12 @@ export default function App() {
   const [artifactDraft, setArtifactDraft] = useState(""); const [artifactTitle, setArtifactTitle] = useState(""); const [savingArtifact, setSavingArtifact] = useState(false);
   const [busy, setBusy] = useState(false); const [notice, setNotice] = useState<string | null>(null); const [settingsOpen, setSettingsOpen] = useState(false);
   const [ownerToken, setOwnerToken] = useState(""); const [loginBusy, setLoginBusy] = useState(false);
-  const dialog = useRef<HTMLDialogElement>(null); const submitLock = useRef(false); const retry = useRef<{ body: string; key: string } | undefined>(undefined);
+  const dialog = useRef<HTMLDialogElement>(null); const submitLock = useRef(false); const authEpoch = useRef(0); const retry = useRef<{ body: string; key: string } | undefined>(undefined);
   const usable = mode === "research" && workflow === "manual-brief" ? Boolean(authenticated && conversationId && projectSources.length) : Boolean(authenticated && providers?.inference.configured && providers.inference.enabled && (mode !== "research" || (providers.search.configured && providers.search.enabled)));
   const running = tasks.some(t => t.status === "running"); const locked = busy || running || savingArtifact;
   function clearPrivateView() {
-    setAuthenticated(false); setProviders(null); setHistory([]); setTasks([]); setArtifacts([]); setSelectedArtifact(null); setProjectSources([]); setConversationId(undefined); setPrompt(""); setOwnerToken(""); setActiveTitle(""); setProjectTitle(""); setSourceTitle(""); setSourceUrl(""); setSourceEvidence(""); setArtifactDraft(""); setArtifactTitle(""); retry.current = undefined;
+    authEpoch.current += 1; submitLock.current = false;
+    setAuthenticated(false); setProviders(null); setHistory([]); setTasks([]); setArtifacts([]); setSelectedArtifact(null); setProjectSources([]); setConversationId(undefined); setPrompt(""); setOwnerToken(""); setActiveTitle(""); setProjectTitle(""); setSourceTitle(""); setSourceUrl(""); setSourceEvidence(""); setArtifactDraft(""); setArtifactTitle(""); setBusy(false); setSavingArtifact(false); retry.current = undefined;
   }
   function reportError(error: unknown) {
     if (error instanceof ApiError && error.status === 401) {
@@ -44,11 +45,15 @@ export default function App() {
     } else setNotice(error instanceof Error ? error.message : "Request failed. No retry or fallback.");
   }
   async function refresh() {
+    const epoch = authEpoch.current;
     const [p, h] = await Promise.all([api<Providers>("/api/providers"), api<Conversation[]>("/api/conversations")]);
+    if (epoch !== authEpoch.current) return;
     setProviders(p); setHistory(h);
   }
   async function loadConversation(id: string) {
+    const epoch = authEpoch.current;
     const data = await api<{ title?: string; mode?: Mode; sources?: (Source & { recordId?: string })[]; tasks: Task[]; artifacts: Artifact[] }>("/api/conversations/" + id);
+    if (epoch !== authEpoch.current) return;
     setConversationId(id); setTasks(data.tasks); setArtifacts(data.artifacts); setSelectedArtifact(null);
     setActiveTitle(data.title ?? data.tasks[0]?.prompt.slice(0, 90) ?? ""); setProjectTitle(data.title ?? ""); setProjectSources(data.sources ?? []);
     if (data.mode ?? data.tasks[0]?.mode) setMode(data.mode ?? data.tasks[0].mode);
@@ -77,20 +82,25 @@ export default function App() {
     finally { setOwnerToken(""); setLoginBusy(false); }
   }
   async function logout() {
-    try { await api("/api/session", { method: "DELETE" }); clearPrivateView(); setSettingsOpen(false); setNotice("Logged out. Session revoked."); }
-    catch (error) { reportError(error); }
+    // Invalidate in-flight private reads/writes before awaiting the network logout.
+    clearPrivateView(); setSettingsOpen(false); setNotice("Signing out…");
+    const epoch = authEpoch.current;
+    try { await api("/api/session", { method: "DELETE" }); if (epoch === authEpoch.current) setNotice("Logged out. Server session revocation confirmed."); }
+    catch { if (epoch === authEpoch.current) setNotice("Private data was cleared from this view, but server revocation could not be confirmed. Retry logout; the session expires automatically after 8 hours."); }
   }
   async function submitTask(e?: React.FormEvent) {
     e?.preventDefault(); if (!prompt.trim() || submitLock.current || locked || !usable || !allowDiscard()) return;
     submitLock.current = true; setBusy(true); setNotice(null);
+    const epoch = authEpoch.current;
     const body = JSON.stringify({ mode, prompt: prompt.trim(), inputType: mode === "analyze" ? inputType : "text", ...(mode === "research" ? { workflow } : {}), ...(conversationId ? { conversationId } : {}) });
     const key = retry.current?.body === body ? retry.current.key : crypto.randomUUID(); retry.current = { body, key };
     try {
       const task = await api<Task>("/api/tasks", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": key }, body });
-      await loadConversation(task.conversationId); setPrompt(""); retry.current = undefined;
+      if (epoch !== authEpoch.current) return;
+      await loadConversation(task.conversationId); if (epoch !== authEpoch.current) return; setPrompt(""); retry.current = undefined;
       setNotice(task.status === "succeeded" ? "Succeeded with " + task.provider + " / " + task.model + ". Output persisted." : "Task status: " + task.status + (task.error ? " / " + task.error : ""));
-    } catch (error) { reportError(error); }
-    finally { try { await refresh(); } catch (error) { if (error instanceof ApiError && error.status === 401) reportError(error); } setBusy(false); submitLock.current = false; }
+    } catch (error) { if (epoch === authEpoch.current) reportError(error); }
+    finally { if (epoch === authEpoch.current) { try { await refresh(); } catch (error) { if (epoch === authEpoch.current && error instanceof ApiError && error.status === 401) reportError(error); } if (epoch === authEpoch.current) { setBusy(false); submitLock.current = false; } } }
   }
   async function deleteConversation() {
     if (!conversationId || locked || !window.confirm("Delete this conversation, tasks and artifacts? Usage counters will not reset.")) return;
