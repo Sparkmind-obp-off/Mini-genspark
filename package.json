@@ -15,7 +15,8 @@
     "test": "vitest run --maxWorkers=1",
     "test:browser": "node scripts/browser-acceptance.mjs",
     "test:live": "node scripts/live-smoke.mjs",
-    "test:workflow": "node scripts/workflow-acceptance.mjs"
+    "test:workflow": "node scripts/workflow-acceptance.mjs",
+    "release:check": "node scripts/release-preflight.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",

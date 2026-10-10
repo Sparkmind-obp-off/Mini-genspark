@@ -7,7 +7,8 @@ Turn a business/product question into a traceable brief and an editable next-ste
 **Tested local release candidate; public/commercial production NO-GO. Not deployed.** Private single-owner sessions are not public SaaS authentication. The real local workflow works without provider calls using owner-supplied excerpts, honestly labelled **provided-not-retrieved**. It does not fetch pasted URLs, independently verify facts or pretend a template is AI inference.
 
 Implemented and locally tested:
-- Owner login/logout with hashed D1 sessions, HttpOnly/Secure host cookies outside localhost, expiry, CSRF/exact Origin and private record checks.
+- Owner login/logout with hashed D1 sessions, HttpOnly/Secure host cookies outside localhost, expiry, CSRF/exact Origin and private record checks. Rotation of the application secret now invalidates old sessions; revoke-all and active-credential revocation are available.
+- Protected **Access & Security / Authentication & Credentials** panel: real D1 counters/events, one-time 256-bit replacement token generation, explicit copy/TXT download, pending cancellation, guided manual Worker secret installation and verified replacement login. No Cloudflare API token enters the browser; no plaintext application token is stored in D1 or retrievable by dashboard APIs.
 - Create/open/rename/delete projects; add/remove at most five permitted excerpts; questions, runs, sources and artifacts persist.
 - Structured manual brief: provided evidence, independently verified facts (none), working interpretation, assumptions, unknowns and next steps.
 - Editable Markdown artifacts with optimistic revision checks, safe text preview/copy and authorized MD/JSON/CSV/static escaped HTML export. Original run/evidence snapshots remain unchanged after editing; edits are not fact-checked.
@@ -15,7 +16,7 @@ Implemented and locally tested:
 - Daily attempt caps, source/project/output/request/time/concurrency limits; per-run reserved/consumed/released ledger. Failed provider reservations release; anti-abuse attempt counts remain. These are not paid customer credits.
 - Public scope-matching `/privacy`, `/terms`, `/pricing`, `/support`, `/status` pages. A monitored support channel is not claimed unless configured and verified.
 
-**Evidence:** 51 automated unit/provider/API/D1/React tests passed; browser fixture checks passed; actual local Worker+D1 browser journey passed without HTTP/provider mocks. Dependency audit reported zero vulnerabilities. Cloudflare BYOK account authentication and read-only inventory succeeded, but no Vestren Worker/D1 target exists in the observed inventory. Wrangler dry-run validates packaging, not cloud target readiness. See NOW.md and the release/gap documents for exact evidence and open gates.
+**Evidence:** current implementation passed 66 unit/provider/API/D1/React tests and browser checks, including real local authenticated credential TXT download and failed replacement verification without revoking the current credential. See NOW.md for exact commands/checkpoints; prior 51-test evidence is historical. BYOK authentication and read-only inventory work: nine unrelated D1 databases and one unrelated Worker, no Vestren match. D1 remote setup and mandatory Worker secret remain PENDING_OWNER_ACTION; no cloud deployment is claimed.
 
 ## Reproduce locally
 
@@ -61,6 +62,12 @@ Live Research is a separate explicit workflow requiring Tavily plus an approved 
 |---|---|
 | GET `/api/health` | Minimal public owner-only status |
 | POST/GET/DELETE `/api/session` | `{token}` login / check / revoke, 8-hour sessions |
+| GET `/api/security?window=1h\|24h\|7d\|30d` | Owner-only counters, events, session/credential fingerprint and runtime schema status |
+| POST `/api/credentials/generate` | `{confirm:true}` generates one-time token; pending until manual secret installation |
+| POST `/api/credentials/authorize-export` | `{confirm:true}` checks owner session/CSRF before browser copy/download; never retrieves old token |
+| POST `/api/credentials/cancel` | `{confirm:true,fingerprint}` cancels a pending token; never install it |
+| POST `/api/credentials/revoke` | `{confirm:true}` disables active credential and deletes all sessions; recovery through own Cloudflare account |
+| DELETE `/api/sessions` | Revoke all owner sessions; active credential remains usable |
 | GET `/api/providers` | Authenticated configuration/attempt counters/limitations, no secret values or account balance |
 | POST/GET `/api/projects` | `{title}` + UUID Idempotency-Key creates research project; list most recent 50 |
 | GET/PATCH/DELETE `/api/projects/:id` | Open / `{title}` rename / guarded atomic deletion |
@@ -73,7 +80,7 @@ Live Research is a separate explicit workflow requiring Tavily plus an approved 
 | `/api/conversations`, `/api/chat` | Compatibility routes for the same project aggregate/new task contract |
 | `/privacy`, `/terms`, `/pricing`, `/support`, `/status` | Honest public trust/scope pages |
 
-Every private request uses server-derived owner identity; mutations require trusted same-origin Origin. Errors include code/message/request ID; no upstream secret bodies/stack traces. Projects reuse the existing conversation aggregate to avoid parallel schema/history. Additive 0002 adds the tested foundation; 0003 adds normalized provided-source records, artifact edit revisions and a usage ledger. 0001 is unchanged. Small text artifacts remain in D1; R2 is unnecessary for this bounded use case. No runtime filesystem, arbitrary fetcher, upload/sandbox execution or payment ledger exists.
+Every private request uses server-derived owner identity; mutations require trusted same-origin Origin. Errors include code/message/request ID; no upstream secret bodies/stack traces. Projects reuse the existing conversation aggregate to avoid parallel schema/history. Additive 0002 adds the tested foundation; 0003 adds normalized provided-source records, artifact edit revisions and a usage ledger. 0004 adds session credential binding, fingerprint-only credential lifecycle metadata and bounded access audit/counters. Existing legacy sessions require re-login; 0001–0003 are unchanged. Small text artifacts remain in D1; R2 is unnecessary for this bounded use case. No runtime filesystem, arbitrary fetcher, upload/sandbox execution or payment ledger exists.
 
 Limits: 50 projects, 30 runs/project, five supplied excerpts/project, 2000 chars/excerpt, 4000-char question, 64 KB UTF-8 artifact, 18 KB ordinary request/128 KB editor body, 4 runs/minute, 30 workspace mutations/minute, at most 20 provider attempts/day and 100 searches/month. Content/event retention is lazy 30 days; deletion does not refund anti-abuse counters. Backup/vendor deletion guarantees remain separately unverified.
 
@@ -83,12 +90,21 @@ Limits: 50 projects, 30 runs/project, five supplied excerpts/project, 2000 chars
 - **Source control:** owner-directed direct commits/pushes to `main`; no new branches or pull requests for routine implementation. The existing PRs #4 and #5 are already merged.
 - **Release:** no GitHub Actions/CI or automated deployment. Local QA + manual Wrangler release only.
 - **Private preview target:** `vestrenhq-private-preview` Worker and D1; no custom DNS, paid provider activation, payments, or public launch.
-- Wrangler Worker/D1 names are aligned to Vestren, but the D1 ID remains a placeholder. No deployment or remote mutation has been performed from this session because the authenticated Cloudflare BYOK runtime is not available here.
-- The latest code changes address delayed private UI responses after logout and orphan-task creation at the 50-project cap. Regression tests were added but have **not** been rerun after those changes.
+- `wrangler.jsonc` is **local-only** (emulator ID). `wrangler.preview.jsonc` targets the existing proposed `vestrenhq-private-preview` name and verified account; `d1_databases[0].database_id` is intentionally empty, not invented. `npm run release:check` exits 2 until real target/secret/schema prerequisites are satisfied; it never deploys automatically.
+- GitHub/Cloudflare BYOK authentication are available in this environment. The earlier unavailable-connector statement is historical, not the present blocker. No remote mutations occurred.
+- No Genspark Hosted Access Rules, membership gate, hosted identity or platform Dispatcher dependency is used for this BYOK application. Existing app owner identity/record authorization remain server-side Worker concerns. Public login shell and policy pages contain no private data.
 - Public multi-user auth, live retrieval/inference proof, backup/restore, observability, Duitku payments, Daytona sandbox, and customer-validation evidence remain open gates. See [current gap assessment and private-preview release plan](docs/27_CURRENT_GAP_ASSESSMENT_AND_DIRECT_MAIN_RELEASE.md).
 
 ## Canonical product documents
 
 [Constitution](docs/00_VESTREN_PRODUCT_CONSTITUTION.md), [Architecture](docs/03_ARCHITECTURE.md), [Roadmap](docs/04_ROADMAP.md), [Migration](docs/11_VESTREN_MIGRATION_PLAN.md), [Full stack](docs/12_VESTREN_FULL_STACK_ARCHITECTURE.md), [Commercial blueprint](docs/13_COMMERCIAL_STARTUP_BLUEPRINT.md), [Product spec](docs/14_COMMERCIAL_PRODUCT_SPEC.md), [Pricing](docs/15_PRICING_AND_GO_TO_MARKET.md), [Release gates](docs/16_COMMERCIAL_RELEASE_GATES.md), [Trust/privacy](docs/17_TRUST_PRIVACY_AND_OPERATIONS.md), [Gap register](docs/18_COMMERCIAL_GAP_REGISTER.md), [Free-first/payment plan](docs/19_FREE_FIRST_BOOTSTRAP_AND_MONETIZATION.md), [Discovery](docs/20_ICP_AND_CUSTOMER_DISCOVERY.md), [Positioning](docs/21_POSITIONING_AND_LANDING_PAGE.md), [GTM](docs/22_GO_TO_MARKET_EXECUTION_PLAYBOOK.md), [Support](docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md), [Manual release](docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md), [Metrics](docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md), [Current gap assessment & private-preview release](docs/27_CURRENT_GAP_ASSESSMENT_AND_DIRECT_MAIN_RELEASE.md).
 
-Next: approve/identify an isolated private BYOK Worker+D1 target, then complete live retrieval/inference and recovery proofs. Public paid launch stays NO-GO; Daytona and Duitku remain selected but disabled/unimplemented rather than falsely integrated.
+## Owner credential lifecycle
+
+Open Settings, login with the separate application credential, then open **Access & Security**. Generate a replacement, explicitly copy/download the one-time secret, save it securely, install via your own Cloudflare Worker Secrets, and choose **Verify replacement login**. Generation alone does not alter access. Installation has no grace period: the existing single-secret architecture immediately invalidates old sessions when the secret changes. Successful replacement login marks the old fingerprint rotated. Cancelled/revoked/rotated fingerprints cannot login again. Save the replacement BEFORE installing it; failed verification cannot install or revoke a secret automatically.
+
+Closing the panel/logout/reload clears the plaintext; it cannot be recovered from the server. Bootstrap or lost-token recovery requires your own terminal/Cloudflare account, not chat. Full safe bootstrap commands, rotation/recovery and rollback steps: [manual BYOK runbook](docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md).
+
+Counters cover requests reaching this Worker, in UTC hourly windows, retained 30 days (not lifetime traffic). Detailed events retain 7 days, sampled to 200/hour, latest 50 displayed; session creation is represented by AUTH_SUCCESS. Unknown creation time/absent retained timestamps and unverified cloud deployment are UNAVAILABLE, not fabricated zero. Audit failures return safe 503; some ordinary mutations may already have completed, so inspect state before retrying. Credential fingerprints/status are retained to enforce revocation; no plaintext secrets retained.
+
+Next: configure the dedicated real D1 ID and required Worker secret using the runbook, then complete remote smoke/recovery proofs. Public paid launch stays NO-GO; Daytona and Duitku remain selected but disabled/unimplemented rather than falsely integrated.

@@ -1,6 +1,7 @@
 import { AppError, analyzeInput, cap, exportArtifact, readJson, systemPrompt, uuidPattern, validateCitations, validateTask, manualBrief, type Message, type Source } from "./domain";
 import { providedSources, workspaceMutation } from "./workspace";
 import { policyPage } from "./policies";
+import { accessSnapshot, auditStatements, credentialMutation, requireOwnerSecret, type AccessContext, type OwnerSession } from "./security";
 import { assertInference, assertSearch, infer, inferenceConfig, search, type ProviderEnv } from "./providers";
 export interface D1Statement {
   bind(...values: (string | number | null)[]): D1Statement;
@@ -11,7 +12,7 @@ export interface D1Statement {
 export interface D1Database { prepare(sql: string): D1Statement; batch(statements: D1Statement[]): Promise<unknown[]>; }
 export interface Env extends ProviderEnv {
   DB?: D1Database; ASSETS?: { fetch(request: Request): Promise<Response> };
-  OWNER_ACCESS_TOKEN?: string; DAILY_REQUEST_LIMIT?: string; SEARCH_MONTHLY_LIMIT?: string; APP_ORIGIN?: string; SUPPORT_EMAIL?: string;
+  OWNER_ACCESS_TOKEN?: string; DAILY_REQUEST_LIMIT?: string; SEARCH_MONTHLY_LIMIT?: string; APP_ORIGIN?: string; SUPPORT_EMAIL?: string; DEPLOYMENT_STAGE?: string;
 }
 type Task = { id: string; conversation_id: string; mode: string; prompt: string; result: string; status: string; provider: string; model: string; error_code: string; sources_json: string; analysis_json: string | null; created_at: string; updated_at: string; input_hash: string };
 const ownerId = "workspace-owner";
@@ -33,10 +34,16 @@ function setCookie(request: Request, token: string, maxAge: number): string {
   const local = ["localhost", "127.0.0.1"].includes(new URL(request.url).hostname);
   return `${sessionCookie(request)}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${local && new URL(request.url).protocol === "http:" ? "" : "; Secure"}`;
 }
-async function authenticate(request: Request, env: Env): Promise<void> {
+async function authenticate(request: Request, env: Env, context: AccessContext): Promise<void> {
+  requireOwnerSecret(env);
   const token = cookie(request); if (!/^[a-f0-9]{64}$/.test(token)) throw new AppError("UNAUTHORIZED", 401);
-  const session = await database(env).prepare("SELECT owner_id FROM sessions WHERE token_hash=? AND expires_at>?").bind(await hash(token), Date.now()).first<{ owner_id: string }>();
+  const session = await database(env).prepare("SELECT owner_id,audit_id,created_at,expires_at,credential_hash FROM sessions WHERE token_hash=?").bind(await hash(token)).first<OwnerSession>();
   if (!session || session.owner_id !== ownerId) throw new AppError("UNAUTHORIZED", 401);
+  if (session.expires_at <= Date.now()) { context.expired = true; throw new AppError("UNAUTHORIZED", 401); }
+  if (!session.audit_id || !session.created_at || session.credential_hash !== await hash(env.OWNER_ACCESS_TOKEN!)) throw new AppError("UNAUTHORIZED", 401);
+  const credential = await database(env).prepare("SELECT status FROM owner_credentials WHERE fingerprint=?").bind(session.credential_hash).first<{ status: string }>();
+  if (!credential || credential.status !== "active") throw new AppError("UNAUTHORIZED", 401);
+  context.session = session;
 }
 function taskView(row: Task): Record<string, unknown> {
   return { id: row.id, conversationId: row.conversation_id, mode: row.mode, prompt: row.prompt, response: row.result, status: row.status, provider: row.provider, model: row.model, error: row.error_code || null, sources: JSON.parse(row.sources_json), analysis: row.analysis_json ? JSON.parse(row.analysis_json) : null, createdAt: row.created_at, updatedAt: row.updated_at, integration: row.provider === "local-evidence-template" ? "manual-no-live-retrieval" : "live-provider", notice: row.provider === "local-evidence-template" ? "Owner-provided excerpts only; no page was retrieved or independently verified, no AI call was made. Edit and review the structured brief." : row.mode === "research" ? "Model synthesis based on search excerpts, not full-page extraction. Citation checks validate source IDs, not factual entailment. Review evidence independently." : "AI output; review before use. Build does not execute code." };
@@ -52,8 +59,10 @@ async function cleanup(db: D1Database): Promise<void> {
     db.prepare("DELETE FROM tasks WHERE created_at<?").bind(cutoff),
     db.prepare("DELETE FROM task_events WHERE created_at<?").bind(cutoff),
     db.prepare("DELETE FROM conversations WHERE created_at<? AND NOT EXISTS (SELECT 1 FROM tasks WHERE conversation_id=conversations.id)").bind(cutoff),
-    db.prepare("DELETE FROM sessions WHERE expires_at<?").bind(Date.now()),
-    db.prepare("DELETE FROM request_limits WHERE bucket NOT LIKE ? AND bucket NOT LIKE ? AND bucket NOT LIKE ? AND bucket NOT LIKE ?").bind("login:" + Math.floor(Date.now() / 600000) + ":%", "submit:" + Math.floor(Date.now() / 60000) + ":%", "search:" + new Date().toISOString().slice(0, 7), "workspace:" + Math.floor(Date.now() / 60000) + ":%")
+    db.prepare("DELETE FROM sessions WHERE expires_at<?").bind(Date.now() - 86400000),
+    db.prepare("DELETE FROM access_counts WHERE hour<?").bind(new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 13)),
+    db.prepare("DELETE FROM access_events WHERE hour<?").bind(new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 13)),
+    db.prepare("DELETE FROM request_limits WHERE bucket NOT LIKE ? AND bucket NOT LIKE ? AND bucket NOT LIKE ? AND bucket NOT LIKE ? AND bucket NOT LIKE ?").bind("login:" + Math.floor(Date.now() / 600000) + ":%", "submit:" + Math.floor(Date.now() / 60000) + ":%", "search:" + new Date().toISOString().slice(0, 7), "workspace:" + Math.floor(Date.now() / 60000) + ":%", "credential:" + Math.floor(Date.now() / 60000))
   ]);
 }
 async function executeTask(request: Request, env: Env): Promise<Response> {
@@ -77,7 +86,7 @@ async function executeTask(request: Request, env: Env): Promise<Response> {
   try {
     await db.batch([
       db.prepare("INSERT OR IGNORE INTO conversations(id,owner_id,mode,title,created_at) SELECT ?,?,?,?,? WHERE (SELECT count(*) FROM conversations WHERE owner_id=?)<50 OR EXISTS(SELECT 1 FROM conversations WHERE id=? AND owner_id=?)").bind(conversationId, ownerId, input.mode, input.prompt.slice(0, 90), now, ownerId, conversationId, ownerId),
-      db.prepare("INSERT INTO tasks(id,owner_id,conversation_id,idempotency_key,input_hash,mode,prompt,status,provider,model,created_at,updated_at,analysis_json) SELECT ?,?,?,?,?,?,?,'running',?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM tasks WHERE status='running') AND EXISTS(SELECT 1 FROM conversations WHERE id=? AND owner_id=?)").bind(taskId, ownerId, conversationId, key, inputHash, input.mode, input.prompt, config.provider, config.model, now, now, analysis, conversationId, ownerId)
+      db.prepare("INSERT INTO tasks(id,owner_id,conversation_id,idempotency_key,input_hash,mode,prompt,status,provider,model,created_at,updated_at,analysis_json) SELECT ?,?,?,?,?,?,?,'running',?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM tasks WHERE status='running') AND EXISTS(SELECT 1 FROM conversations WHERE id=? AND owner_id=?) AND (SELECT count(*) FROM tasks WHERE conversation_id=? AND owner_id=?)<30").bind(taskId, ownerId, conversationId, key, inputHash, input.mode, input.prompt, config.provider, config.model, now, now, analysis, conversationId, ownerId, conversationId, ownerId)
     ]);
   } catch {
     const duplicate = await db.prepare("SELECT * FROM tasks WHERE owner_id=? AND idempotency_key=?").bind(ownerId, key).first<Task>();
@@ -89,6 +98,8 @@ async function executeTask(request: Request, env: Env): Promise<Response> {
     if (!input.conversationId) await db.prepare("DELETE FROM conversations WHERE id=? AND NOT EXISTS(SELECT 1 FROM tasks WHERE conversation_id=?)").bind(conversationId, conversationId).run();
     const conversationExists = await db.prepare("SELECT id FROM conversations WHERE id=? AND owner_id=?").bind(conversationId, ownerId).first();
     if (!conversationExists) throw new AppError("PROJECT_LIMIT_REACHED", 409, "Maximum 50 saved projects reached. Delete an unused project before starting another.");
+    const count = await db.prepare("SELECT count(*) AS n FROM tasks WHERE conversation_id=? AND owner_id=?").bind(conversationId, ownerId).first<{ n: number }>();
+    if ((count?.n ?? 0) >= 30) throw new AppError("CONVERSATION_LIMIT_REACHED", 409);
     throw new AppError("WORKSPACE_BUSY", 409, "One task may execute at a time. Retry after it completes.");
   }
   let sources: Source[] = [];
@@ -131,7 +142,7 @@ async function executeTask(request: Request, env: Env): Promise<Response> {
   const completed = await db.prepare("SELECT * FROM tasks WHERE id=? AND owner_id=?").bind(taskId, ownerId).first<Task>();
   return json(taskView(completed!), 201);
 }
-async function route(request: Request, env: Env): Promise<Response> {
+async function route(request: Request, env: Env, context: AccessContext): Promise<Response> {
   const url = new URL(request.url); const path = url.pathname.replace(/^\/api\/projects(?=\/|$)/, "/api/conversations");
   const policy = request.method === "GET" ? policyPage(url.pathname, env.SUPPORT_EMAIL) : null;
   if (policy) return policy;
@@ -144,17 +155,40 @@ async function route(request: Request, env: Env): Promise<Response> {
     await db.batch([db.prepare("DELETE FROM request_limits WHERE bucket LIKE 'login:%' AND bucket NOT LIKE ?").bind("login:" + Math.floor(Date.now() / 600000) + ":%"), db.prepare("DELETE FROM sessions WHERE expires_at<?").bind(Date.now())]);
     await rate(db, "login:" + Math.floor(Date.now() / 600000) + ":global", 20);
     await rate(db, "login:" + Math.floor(Date.now() / 600000) + ":" + await hash(request.headers.get("cf-connecting-ip") ?? "local"), 5);
-    if (!env.OWNER_ACCESS_TOKEN || (env.OWNER_ACCESS_TOKEN.length < 32 || env.OWNER_ACCESS_TOKEN.length > 256)) throw new AppError("OWNER_TOKEN_NOT_CONFIGURED", 503, "Set an application-specific owner token of at least 32 characters as a server secret.");
+    requireOwnerSecret(env); // OWNER_TOKEN_NOT_CONFIGURED fails closed for mandatory app secret.
     const body = await readJson(request) as { token?: unknown };
-    if (!body || typeof body.token !== "string" || body.token.length > 256 || !same(await hash(body.token), await hash(env.OWNER_ACCESS_TOKEN))) throw new AppError("UNAUTHORIZED", 401);
+    if (!body || typeof body.token !== "string" || body.token.length > 256 || !same(await hash(body.token), await hash(env.OWNER_ACCESS_TOKEN!))) throw new AppError("UNAUTHORIZED", 401);
     const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("");
-    await db.prepare("INSERT INTO sessions(token_hash,owner_id,expires_at) VALUES (?,?,?)").bind(await hash(token), ownerId, Date.now() + 8 * 3600000).run();
+    const digest = await hash(env.OWNER_ACCESS_TOKEN!);
+    const credential = await db.prepare("SELECT status FROM owner_credentials WHERE fingerprint=?").bind(digest).first<{ status: string }>();
+    if (credential && ["revoked", "cancelled", "rotated"].includes(credential.status)) throw new AppError("CREDENTIAL_REVOKED", 401, "This credential was revoked. Install a newly generated token through your own Cloudflare account.");
+    const session: OwnerSession = { owner_id: ownerId, audit_id: crypto.randomUUID(), created_at: Date.now(), expires_at: Date.now() + 8 * 3600000, credential_hash: digest };
+    context.session = session; context.requireStoredSession = true;
+    const creationResults = await db.batch([
+      db.prepare("UPDATE owner_credentials SET status='rotated' WHERE status='active' AND fingerprint<>? AND NOT EXISTS(SELECT 1 FROM owner_credentials WHERE fingerprint=? AND status IN ('revoked','cancelled','rotated'))").bind(digest, digest),
+      db.prepare("INSERT INTO owner_credentials(fingerprint,created_at,status) SELECT ?,NULL,'active' WHERE NOT EXISTS(SELECT 1 FROM owner_credentials WHERE fingerprint=? AND status IN ('revoked','cancelled','rotated')) ON CONFLICT(fingerprint) DO UPDATE SET status='active' WHERE owner_credentials.status IN ('active','pending')").bind(digest, digest),
+      db.prepare("DELETE FROM sessions WHERE (credential_hash IS NULL OR credential_hash<>?) AND EXISTS(SELECT 1 FROM owner_credentials WHERE fingerprint=? AND status='active')").bind(digest, digest),
+      db.prepare("INSERT INTO sessions(token_hash,owner_id,expires_at,audit_id,created_at,credential_hash) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM owner_credentials WHERE fingerprint=? AND status='active') RETURNING audit_id").bind(await hash(token), ownerId, session.expires_at, session.audit_id, session.created_at, digest, digest),
+      ...(credential?.status === "pending" ? auditStatements(db, request, context, 200, null, "CREDENTIAL_ROTATION_COMPLETED") : []),
+      ...auditStatements(db, request, context, 200)
+    ]);
+    const insertedSession = (creationResults[3] as { results?: unknown[] }).results?.length;
+    if (!insertedSession) { context.requireStoredSession = false; context.session = undefined; throw new AppError("CREDENTIAL_REVOKED", 401); }
+    context.committed = true;
     return json({ authenticated: true, expiresIn: 28800 }, 200, { "set-cookie": setCookie(request, token, 28800) });
   }
-  await authenticate(request, env);
-  if (path === "/api/session" && request.method === "GET") return json({ authenticated: true, scope: "single-owner" });
+  await authenticate(request, env, context);
+  if (path === "/api/session" && request.method === "GET") return json({ authenticated: true, scope: "single-owner", expiresAt: context.session!.expires_at });
+  if (path === "/api/security" && request.method === "GET") { await cleanup(db); return json(await accessSnapshot(db, env, context.session!, url.searchParams.get("window"))); }
+  if (path === "/api/sessions" && request.method === "DELETE") {
+    await db.batch([db.prepare("DELETE FROM sessions WHERE owner_id=?").bind(ownerId), ...auditStatements(db, request, context, 200)]); context.committed = true;
+    return json({ revoked: true }, 200, { "set-cookie": setCookie(request, "", 0) });
+  }
+  const credentials = await credentialMutation(request, db, env, context);
+  if (credentials) { if (path === "/api/credentials/revoke") credentials.headers.set("set-cookie", setCookie(request, "", 0)); return credentials; }
   if (path === "/api/session" && request.method === "DELETE") {
-    await db.prepare("DELETE FROM sessions WHERE token_hash=?").bind(await hash(cookie(request))).run();
+    await db.batch([db.prepare("DELETE FROM sessions WHERE token_hash=?").bind(await hash(cookie(request))), ...auditStatements(db, request, context, 200)]);
+    context.committed = true;
     return json({ authenticated: false }, 200, { "set-cookie": setCookie(request, "", 0) });
   }
   await cleanup(db);
@@ -201,9 +235,14 @@ async function route(request: Request, env: Env): Promise<Response> {
 }
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const requestId = crypto.randomUUID(); let response: Response;
-    try { response = await route(request, env); }
-    catch (error) { const safe = error instanceof AppError ? error : new AppError("INTERNAL_ERROR", 500, "Request failed safely. Check runtime bindings and migrations; details are not exposed."); response = json({ error: safe.code, message: safe.message, requestId }, safe.status, safe.status === 429 ? { "retry-after": "60" } : {}); }
+    const requestId = crypto.randomUUID(); const context: AccessContext = { requestId }; let response: Response; let reason: string | null = null;
+    try { response = await route(request, env, context); }
+    catch (error) { const safe = error instanceof AppError ? error : new AppError("INTERNAL_ERROR", 500, "Request failed safely. Check runtime bindings and migrations; details are not exposed."); reason = safe.code; context.requireStoredSession = false; response = json({ error: safe.code, message: safe.message, requestId }, safe.status, safe.status === 429 ? { "retry-after": "60" } : {}); }
+    const path = new URL(request.url).pathname;
+    if (path.startsWith("/api/") && path !== "/api/health" && !context.committed && env.DB) {
+      try { await env.DB.batch(auditStatements(env.DB, request, context, response.status, reason)); }
+      catch { response = json({ error: "SECURITY_AUDIT_UNAVAILABLE", message: "Security audit storage unavailable. Verify D1 and migration 0004. A prior mutation may have completed; inspect state before retrying.", requestId }, 503); }
+    }
     const secured = new Response(response.body, response);
     secured.headers.set("x-request-id", requestId); secured.headers.set("x-content-type-options", "nosniff"); secured.headers.set("referrer-policy", "no-referrer"); secured.headers.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
     if (!secured.headers.has("content-security-policy")) secured.headers.set("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");

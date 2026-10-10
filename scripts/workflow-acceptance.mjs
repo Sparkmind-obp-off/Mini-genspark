@@ -16,6 +16,25 @@ try {
   await page.goto(base); await page.getByRole('button', { name: 'Open settings' }).click();
   await page.getByLabel('Application owner token (not a provider API key)').fill(token); await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible(); await page.getByRole('button', { name: 'Close settings' }).click();
+  await page.getByRole('button', { name: 'Access & Security', exact: true }).click();
+  const security = page.getByRole('region', { name: 'Access & Security', exact: true });
+  await expect(security.getByText('Access counters — VERIFIED')).toBeVisible();
+  page.once('dialog', dialog => dialog.accept()); await security.getByRole('button', { name: 'Generate replacement credential' }).click();
+  await expect(security.getByLabel('One-time secret — save securely')).toBeVisible();
+  const credentialDownload = page.waitForEvent('download'); await security.getByRole('button', { name: 'Download new credential TXT' }).click();
+  const credentialFile = await credentialDownload; const credentialText = await readFile(await credentialFile.path(), 'utf8');
+  assert.ok(credentialText.includes('VestrenHQ') && credentialText.includes('SECRET:') && /Token: [a-f0-9]{64}/.test(credentialText));
+  assert.equal(credentialFile.suggestedFilename(), 'vestrenhq-owner-credential.txt');
+  await security.getByRole('button', { name: 'Copy new credential', exact: true }).click();
+  await expect(security.getByText(/Secret copied explicitly/)).toBeVisible();
+  assert.ok((await page.evaluate(() => navigator.clipboard.readText())) === await security.getByLabel('One-time secret — save securely').inputValue());
+  await page.evaluate(() => navigator.clipboard.writeText(''));
+  await security.getByRole('button', { name: 'Verify replacement login' }).click();
+  await expect(security.getByText(/replacement login not verified/)).toBeVisible();
+  assert.equal((await context.request.get(base+'/api/security')).status(),200);
+  await security.getByRole('button', { name: 'Cancel pending credential' }).click();
+  await expect(security.getByLabel('One-time secret — save securely')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Access & Security', exact: true }).click();
   await page.getByRole('button', { name: 'Start research project' }).click();
   const projectTitle = 'Local acceptance question ' + Date.now(); await page.getByLabel('Project title', { exact: true }).fill(projectTitle);
   const created = page.waitForResponse(r => new URL(r.url()).pathname === '/api/projects' && r.request().method() === 'POST'); await page.getByRole('button', { name: 'Create research project' }).click();
@@ -41,8 +60,8 @@ try {
   assert.equal((await context.request.get(base+'/api/projects/'+projectId)).status(),404); projectId = null;
   await page.getByRole('button',{name:'Open settings'}).click(); await page.getByRole('button',{name:'Log out'}).click(); assert.equal((await context.request.get(base+'/api/providers')).status(),401);
   assert.deepEqual(errors,[]); assert.deepEqual(vendorRequests,[]);
-  console.log('PASS: real local login → project → supplied source ledger → manual brief → edit/CAS save → copy/MD export → rename → reload/reopen → deletion/logout; desktop/mobile; no provider/network retrieval.');
-} catch (error) { console.error('WORKFLOW_FAILED: ' + String(error?.message ?? error).replaceAll(token,'[redacted]').slice(0,2500)); process.exitCode=1; }
+  console.log('PASS: real local login → security dashboard → one-time credential TXT download → failed replacement verification preserves current access → cancel candidate → project → supplied source ledger → manual brief → edit/CAS save → copy/MD export → rename → reload/reopen → deletion/logout; desktop/mobile; no provider/network retrieval.');
+} catch (error) { console.error('WORKFLOW_FAILED: ' + String(error?.message ?? error).replaceAll(token,'[redacted]').replace(/[a-f0-9]{64}/g,'[redacted]').slice(0,2500)); process.exitCode=1; }
 finally {
   if (projectId && context) { await context.request.delete(base+'/api/projects/'+projectId,{headers:{origin:base}}).catch(()=>{}); }
   if (context) { await context.request.delete(base+'/api/session',{headers:{origin:base}}).catch(()=>{}); await context.close(); }

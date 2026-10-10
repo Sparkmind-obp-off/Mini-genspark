@@ -81,6 +81,38 @@ describe("React workflows with deterministic mocked API", () => {
     expect(screen.queryByText(fixture.response)).toBeNull();
     expect(screen.getByRole("button", { name: "Run task" }).hasAttribute("disabled")).toBe(true);
   });
+  it("shows real-metric errors as unavailable rather than fabricated zero counters", async () => {
+    render(<App />); await screen.findByText('Configured · not smoke-tested');
+    fireEvent.click(screen.getByRole('button', { name: 'Access & Security' }));
+    await screen.findByText('ERROR: security metrics unavailable; no counters are assumed.');
+    expect(screen.queryByText('Access counters — VERIFIED')).toBeNull();
+  });
+  it("generates and downloads a new credential explicitly, then clears it on logout", async () => {
+    const data = { token: 'e'.repeat(64), fingerprint: 'f'.repeat(64), createdAt: '2026-10-10T00:00:00Z', environment: 'development', filename: 'vestrenhq-owner-credential.txt', fileContent: 'SECRET token fixture', status: 'pending', installation: 'Manual install only' };
+    const snapshot = { authentication: { status: 'VERIFIED', sessionLabel: 'fixture', expiresAt: '2026-10-10', lastSuccess: '2026-10-10', lastFailure: null }, credential: { fingerprint: 'fixture', status: 'active', createdAt: null }, counters: { successful: 1, failed: 0 }, configuration: { deployment: { status: 'UNAVAILABLE', detail: 'Operator gate' } }, events: [], limitations: 'Fixture', windowStart: '2026-10-10', lastHealthCheck: '2026-10-10' };
+    const fetcher = vi.mocked(fetch); const original = fetcher.getMockImplementation()!;
+    fetcher.mockImplementation(async (path, options) => String(path).startsWith('/api/security') ? new Response(JSON.stringify(snapshot)) : path === '/api/credentials/generate' ? new Response(JSON.stringify(data)) : path === '/api/credentials/authorize-export' ? new Response('{"authorized":true}') : original(path, options));
+    const confirmed = vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
+    const NativeURL = URL; const create = vi.fn(() => 'blob:fixture'); const revoke = vi.fn(); vi.stubGlobal('URL', class extends NativeURL { static createObjectURL = create; static revokeObjectURL = revoke; });
+    const clicked = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    render(<App />); await screen.findByText('Configured · not smoke-tested'); fireEvent.click(screen.getByRole('button', { name: 'Access & Security' }));
+    await screen.findByText('Access counters — VERIFIED'); fireEvent.click(screen.getByRole('button', { name: 'Generate replacement credential' }));
+    const secret = await screen.findByLabelText('One-time secret — save securely'); expect((secret as HTMLInputElement).value === data.token).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Download new credential TXT' })); await waitFor(() => expect(clicked).toHaveBeenCalledTimes(1)); expect(create).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls.some(([path, options]) => path === '/api/credentials/authorize-export' && options?.method === 'POST')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' })); fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+    await waitFor(() => expect(screen.queryByLabelText('One-time secret — save securely')).toBeNull()); expect(screen.queryByRole('button', { name: 'Access & Security' })).toBeNull(); confirmed.mockRestore(); clicked.mockRestore();
+  });
+  it("does not restore a delayed generated credential after logout", async () => {
+    let finish!: (value: Response) => void; const fetcher = vi.mocked(fetch); const original = fetcher.getMockImplementation()!;
+    fetcher.mockImplementation((path, options) => path === '/api/credentials/generate' ? new Promise(resolve => { finish = resolve; }) : original(path, options));
+    const confirmed = vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
+    render(<App />); await screen.findByText('Configured · not smoke-tested'); fireEvent.click(screen.getByRole('button', { name: 'Access & Security' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Generate replacement credential' })); await waitFor(() => expect(finish).toBeTypeOf('function'));
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' })); fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+    finish(new Response(JSON.stringify({ token: 'fixture-delayed-secret', fingerprint: 'fixture', createdAt: '2026-10-10', status: 'pending' })));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Access & Security' })).toBeNull()); expect(screen.queryByLabelText('One-time secret — save securely')).toBeNull(); confirmed.mockRestore();
+  });
   it("supports input format and accessible Settings without browser token storage", async () => {
     render(<App />); await screen.findByText("Configured · not smoke-tested");
     fireEvent.click(within(screen.getByRole("navigation", { name: "Workspace modes" })).getByRole("button", { name: /Analyze/ })); expect(screen.getByLabelText("Input format")).toBeTruthy();

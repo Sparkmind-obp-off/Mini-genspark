@@ -1,18 +1,20 @@
 import { readFileSync } from "node:fs";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker, { type D1Database, type Env } from "./worker";
+// Real workerd/D1 integration adds transactional audit queries; this is not a provider timeout.
+vi.setConfig({ testTimeout: 20000, hookTimeout: 30000 });
 let mf: Miniflare; let db: D1Database; let env: Env; let session: string;
 const fixtureOwner = "test-only-owner-token-not-a-real-secret-000000";
 async function request(path: string, method = "GET", body?: unknown, authenticated = true, extras: Record<string, string> = {}) {
   return worker.fetch(new Request("https://workspace.example" + path, { method, headers: { origin: "https://workspace.example", ...(authenticated ? { cookie: session } : {}), ...(body !== undefined ? { "content-type": "application/json" } : {}), ...extras }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }), env);
 }
 async function submit(prompt = "Hello", mode = "chat", key = crypto.randomUUID(), extra = {}) { return request("/api/tasks", "POST", { mode, prompt, ...extra }, true, { "idempotency-key": key }); }
-beforeAll(async () => {
+async function initializeDatabase() {
   mf = new Miniflare(convertV4MiniflareOptions({ modules: true, script: "export default {fetch(){return new Response('test fixture')}}", compatibilityDate: "2026-10-10", d1Databases: ["DB", "UPGRADE"] }));
   db = await mf.getD1Database("DB") as unknown as D1Database;
   const upgrade = await mf.getD1Database("UPGRADE") as unknown as D1Database;
-  for (const file of ["migrations/0001_initial.sql", "migrations/0002_workspace.sql", "migrations/0003_projects_and_edits.sql"]) {
+  for (const file of ["migrations/0001_initial.sql", "migrations/0002_workspace.sql", "migrations/0003_projects_and_edits.sql", "migrations/0004_owner_security.sql"]) {
     const sql = readFileSync(file, "utf8").replace(/^--.*$/gm, "");
     for (const statement of sql.split(";").filter(s => s.trim())) { await db.prepare(statement).run(); await upgrade.prepare(statement).run(); }
     if (file.includes("0001")) {
@@ -20,14 +22,18 @@ beforeAll(async () => {
       await upgrade.prepare("INSERT INTO task_events(id,created_at,mode,status,provider,model) VALUES ('pre-upgrade','2026-10-01','chat','failed','legacy','legacy')").run();
     }
   }
-});
+}
 beforeEach(async () => {
-  await db.batch(["usage_ledger", "project_sources", "artifacts", "tasks", "conversations", "sessions", "request_limits", "daily_usage", "task_events"].map(table => db.prepare("DELETE FROM " + table)));
+  // Isolate workerd proxy lifetimes as well as database rows; alpha Miniflare bridge
+  // accumulates remote statement references across a long-lived integration suite.
+  await mf?.dispose();
+  await initializeDatabase();
+  await db.batch(["access_events", "access_counts", "owner_credentials", "usage_ledger", "project_sources", "artifacts", "tasks", "conversations", "sessions", "request_limits", "daily_usage", "task_events"].map(table => db.prepare("DELETE FROM " + table)));
   env = { DB: db, OWNER_ACCESS_TOKEN: fixtureOwner, FREE_PLAN_CONFIRMED: "true", AI: { run: vi.fn().mockResolvedValue({ response: "Mocked inference answer" }) } };
   const login = await request("/api/session", "POST", { token: fixtureOwner }, false);
   expect(login.status).toBe(200); session = login.headers.get("set-cookie")!.split(";")[0];
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 afterAll(async () => { await mf?.dispose(); });
 describe("Worker API with real local D1/SQLite; inference MOCKED", () => {
   it("protects every private route, rejects cross-origin, and revokes sessions", async () => {
@@ -197,6 +203,99 @@ describe("Worker API with real local D1/SQLite; inference MOCKED", () => {
     expect(await (await request("/pricing", "GET", undefined, false)).text()).toContain("No published paid offer");
     expect(await (await request("/support", "GET", undefined, false)).text()).toContain("Support channel not configured");
   });
+  it("requires owner auth and exact Origin for credential/audit operations", async () => {
+    expect((await request('/api/security', 'GET', undefined, false)).status).toBe(401);
+    expect((await request('/api/credentials/generate', 'POST', { confirm: true }, false)).status).toBe(401);
+    expect((await request('/api/credentials/generate', 'POST', { confirm: true }, true, { origin: 'https://attacker.example' })).status).toBe(403);
+    expect((await request('/api/credentials/generate', 'POST', {})).status).toBe(400);
+    expect((await request('/api/credentials/generate')).status).toBe(405);
+  });
+  it("generates a 256-bit one-time token, stores only fingerprint, and never retrieves plaintext", async () => {
+    const random = vi.spyOn(crypto, 'getRandomValues');
+    const generated = await request('/api/credentials/generate', 'POST', { confirm: true });
+    expect(generated.status).toBe(200); expect(generated.headers.get('cache-control')).toBe('no-store');
+    const data = await generated.json() as GeneratedCredential; expect(/^[a-f0-9]{64}$/.test(data.token)).toBe(true); expect(data.token !== data.fingerprint).toBe(true);
+    expect(random.mock.calls.some(([buffer]) => buffer instanceof Uint8Array && buffer.byteLength === 32)).toBe(true); random.mockRestore();
+    expect(data.fileContent.includes(data.token)).toBe(true); expect(data.filename.includes(data.token)).toBe(false); expect(data.status).toBe('pending');
+    const row = await db.prepare('SELECT * FROM owner_credentials WHERE fingerprint=?').bind(data.fingerprint).first(); expect(JSON.stringify(row).includes(data.token)).toBe(false);
+    const view = await request('/api/security'); expect((await view.text()).includes(data.token)).toBe(false);
+    const events = await db.prepare('SELECT * FROM access_events').all(); expect(JSON.stringify(events).includes(data.token)).toBe(false); expect(JSON.stringify(events).includes(fixtureOwner)).toBe(false); expect(JSON.stringify(events).includes(session)).toBe(false);
+    expect((await request('/api/credentials/authorize-export', 'POST', { confirm: true }, false)).status).toBe(401);
+    expect((await request('/api/credentials/authorize-export', 'POST', { confirm: true })).status).toBe(200);
+    expect((await request('/api/credentials/' + data.fingerprint)).status).toBe(405);
+  });
+  it("manually installs a replacement, verifies login, invalidates old token and sessions", async () => {
+    const data = await (await request('/api/credentials/generate', 'POST', { confirm: true })).json() as GeneratedCredential;
+    const oldSession = session;
+    expect((await request('/api/session', 'POST', { token: data.token }, false)).status).toBe(401);
+    expect((await request('/api/security')).status).toBe(200);
+    env.OWNER_ACCESS_TOKEN = data.token; // Simulated explicit operator Worker secret installation, not automatic cloud mutation.
+    expect((await request('/api/security')).status).toBe(401);
+    const login = await request('/api/session', 'POST', { token: data.token }, false); expect(login.status).toBe(200); session = login.headers.get('set-cookie')!.split(';')[0];
+    const dashboard = await (await request('/api/security')).json() as SecuritySnapshot; expect(dashboard.credential.status).toBe('active'); expect(dashboard.credential.createdAt).toBe(data.createdAt);
+    expect((await request('/api/security', 'GET', undefined, true, { cookie: oldSession })).status).toBe(401);
+    expect((await request('/api/session', 'POST', { token: fixtureOwner }, false)).status).toBe(401);
+    expect(await db.prepare("SELECT category FROM access_counts WHERE category='CREDENTIAL_ROTATION_COMPLETED'").first()).not.toBeNull();
+  });
+  it("cancels a pending token without changing the active credential", async () => {
+    const data = await (await request('/api/credentials/generate', 'POST', { confirm: true })).json() as GeneratedCredential;
+    expect((await request('/api/credentials/cancel', 'POST', { confirm: true, fingerprint: data.fingerprint })).status).toBe(200);
+    expect((await request('/api/security')).status).toBe(200);
+    env.OWNER_ACCESS_TOKEN = data.token;
+    expect((await request('/api/session', 'POST', { token: data.token }, false)).status).toBe(401);
+  });
+  it("revokes all sessions and separately revokes the active credential with recovery", async () => {
+    expect((await request('/api/sessions', 'DELETE')).status).toBe(200); expect((await request('/api/security')).status).toBe(401);
+    const login = await request('/api/session', 'POST', { token: fixtureOwner }, false); session = login.headers.get('set-cookie')!.split(';')[0];
+    expect((await request('/api/credentials/revoke', 'POST', { confirm: true })).status).toBe(200);
+    expect((await request('/api/session', 'POST', { token: fixtureOwner }, false)).status).toBe(401);
+    env.OWNER_ACCESS_TOKEN = 'fixture-only-recovery-token-separate-value-000000';
+    expect((await request('/api/session', 'POST', { token: env.OWNER_ACCESS_TOKEN }, false)).status).toBe(200);
+  });
+  it("does not resurrect a credential revoked between login validation and session transaction", async () => {
+    let interleaved = false;
+    env.DB = { prepare: sql => db.prepare(sql), batch: async statements => {
+      if (!interleaved && statements.length === 7) {
+        interleaved = true;
+        await db.batch([db.prepare("UPDATE owner_credentials SET status='revoked' WHERE status='active'"), db.prepare('DELETE FROM sessions')]);
+      }
+      return db.batch(statements);
+    } };
+    const login = await request('/api/session', 'POST', { token: fixtureOwner }, false);
+    expect(interleaved).toBe(true); expect(login.status).toBe(401); expect(login.headers.has('set-cookie')).toBe(false);
+    expect((await db.prepare('SELECT count(*) AS n FROM sessions').first<{ n: number }>())!.n).toBe(0);
+    expect((await db.prepare("SELECT sum(event_count) AS n FROM access_counts WHERE category='AUTH_SUCCESS'").first<{ n: number }>())!.n).toBe(1);
+    expect((await db.prepare("SELECT status FROM owner_credentials").first<{ status: string }>())!.status).toBe('revoked');
+  });
+  it("counts real success/failure/denial events and labels cloud metrics unavailable", async () => {
+    await request('/api/session', 'POST', { token: 'wrong' }, false);
+    await request('/api/projects', 'GET', undefined, false);
+    await request('/api/tasks', 'POST', {}, true, { origin: 'https://evil.example' });
+    const view = await (await request('/api/security?window=24h')).json() as SecuritySnapshot;
+    expect(view.counters).toMatchObject({ attempts: 2, successful: 1, failed: 1, unauthorized: 2, forbidden: 1, sessionCreated: 1, activeSessions: 1 });
+    expect(view.credential.createdAt).toBeNull(); expect(view.configuration.deployment.status).toBe('UNAVAILABLE'); expect(view.authentication.lastSuccess).not.toBeNull(); expect(view.authentication.lastFailure).not.toBeNull();
+    expect((await request('/api/security?window=bad')).status).toBe(400);
+  });
+  it("fails closed on missing mandatory secret for existing sessions too", async () => {
+    env.OWNER_ACCESS_TOKEN = undefined;
+    const response = await request('/api/security'); expect(response.status).toBe(503); expect(await response.json()).toMatchObject({ error: 'OWNER_TOKEN_NOT_CONFIGURED' });
+  });
+  it("audit-storage failure returns safe errors and atomic login leaves no orphan session", async () => {
+    const prior = await db.prepare('SELECT count(*) AS n FROM sessions').first<{ n: number }>();
+    env.DB = { prepare: sql => { if (sql.startsWith('INSERT INTO access_events')) return db.prepare('INSERT INTO nonexistent_audit_table VALUES (1)'); return db.prepare(sql); }, batch: statements => db.batch(statements) };
+    const login = await request('/api/session', 'POST', { token: fixtureOwner }, false); expect(login.status).toBe(503); expect(login.headers.has('set-cookie')).toBe(false);
+    expect((await db.prepare('SELECT count(*) AS n FROM sessions').first<{ n: number }>())!.n).toBe(prior!.n);
+    expect((await request('/api/security')).status).toBe(503);
+  });
+  it("retains bounded event samples with real counters and cleans expired audit data", async () => {
+    const now = new Date().toISOString(); const hour = now.slice(0, 13);
+    await db.batch(Array.from({length:200}, () => db.prepare("INSERT INTO access_events VALUES (?,?,?,'OWNER_ACTION','private.other','success',NULL,?,NULL)").bind(crypto.randomUUID(),hour,now,crypto.randomUUID())));
+    await request('/api/projects');
+    expect((await db.prepare('SELECT count(*) AS n FROM access_events WHERE hour=?').bind(hour).first<{ n: number }>())!.n).toBe(201); // initial successful login + seeded sample; no more detail rows admitted
+    const old = new Date(Date.now()-31*86400000).toISOString();
+    await db.prepare("INSERT INTO access_counts VALUES (?,'AUTH_FAILURE',1,?)").bind(old.slice(0,13),old).run();
+    await request('/api/security'); expect(await db.prepare('SELECT hour FROM access_counts WHERE hour=?').bind(old.slice(0,13)).first()).toBeNull();
+  });
   it("supports structured analyze and additive migration preserves legacy metadata", async () => {
     await db.prepare("INSERT INTO task_events(id,created_at,mode,status,provider,model) VALUES ('legacy',?,'chat','failed','legacy','legacy')").bind(new Date().toISOString()).run();
     expect((await submit("a,b\nx,2\ny,3", "analyze", crypto.randomUUID(), { inputType: "csv" })).status).toBe(201);
@@ -204,3 +303,4 @@ describe("Worker API with real local D1/SQLite; inference MOCKED", () => {
   });
 });
 import type { Source } from "./domain";
+import type { GeneratedCredential, SecuritySnapshot } from "./security";
