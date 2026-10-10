@@ -16,9 +16,14 @@ export type GeneratedCredential = { token: string; fingerprint: string; createdA
 export async function fingerprint(value: string): Promise<string> {
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), byte => byte.toString(16).padStart(2, '0')).join('');
 }
+function secretCommand(env: Env): string {
+  return env.DEPLOYMENT_PLATFORM === 'cloudflare-pages'
+    ? 'wrangler pages secret put OWNER_ACCESS_TOKEN --project-name vestrenhq-private'
+    : 'wrangler secret put OWNER_ACCESS_TOKEN --config wrangler.preview.jsonc';
+}
 export function requireOwnerSecret(env: Env): void {
   if (!env.OWNER_ACCESS_TOKEN || env.OWNER_ACCESS_TOKEN.length < 32 || env.OWNER_ACCESS_TOKEN.length > 256)
-    throw new AppError('OWNER_TOKEN_NOT_CONFIGURED', 503, 'Configure OWNER_ACCESS_TOKEN through Cloudflare Worker Secrets (wrangler secret put OWNER_ACCESS_TOKEN --config wrangler.preview.jsonc). Never paste it in chat.');
+    throw new AppError('OWNER_TOKEN_NOT_CONFIGURED', 503, 'Configure OWNER_ACCESS_TOKEN through Cloudflare Secrets (' + secretCommand(env) + '). Never paste it in chat.');
 }
 function action(request: Request): string {
   const path = new URL(request.url).pathname;
@@ -65,17 +70,17 @@ export async function accessSnapshot(db: D1Database, env: Env, session: OwnerSes
   return {
     observedAt: now.toISOString(), window: choice, windowStart: start + ':00:00.000Z',
     authentication: { status: 'VERIFIED', expiresAt: new Date(session.expires_at).toISOString(), sessionLabel: session.audit_id.slice(0, 8), lastSuccess: loginTimes.find(row => row.category === 'AUTH_SUCCESS')?.at ?? null, lastFailure: loginTimes.find(row => row.category === 'AUTH_FAILURE')?.at ?? null },
-    credential: { fingerprint: session.credential_hash.slice(0, 12), status: credential?.status ?? 'UNAVAILABLE', createdAt: credential?.created_at ?? null, installation: 'Worker secret verified by current login/session. Externally created token timestamp is UNAVAILABLE.' },
+    credential: { fingerprint: session.credential_hash.slice(0, 12), status: credential?.status ?? 'UNAVAILABLE', createdAt: credential?.created_at ?? null, installation: 'Application secret verified by current login/session. Externally created token timestamp is UNAVAILABLE.' },
     counters: { attempts: count('AUTH_SUCCESS') + count('AUTH_FAILURE'), successful: count('AUTH_SUCCESS'), failed: count('AUTH_FAILURE'), unauthorized: count('UNAUTHORIZED_REQUEST'), forbidden: count('FORBIDDEN_REQUEST'), sessionCreated: count('SESSION_CREATED'), sessionRevoked: count('SESSION_REVOKED'), ownerActions: count('OWNER_ACTION'), activeSessions: active?.n ?? 0 }, events,
     configuration: {
       ownerSecret: { status: 'CONFIGURED', detail: 'OWNER_ACCESS_TOKEN present and length-valid; login verifies its use. Value never returned.' },
       d1: { status: 'VERIFIED', detail: 'D1 queries succeeded in this runtime; cloud resource identity requires operator verification.' },
       migrations: { status: 'VERIFIED', detail: 'Required schema through 0004 queried successfully; not a remote ledger or restore proof.' },
-      worker: { status: 'VERIFIED', detail: 'Authenticated Worker request executed; not a claim of cloud deployment.' },
-      deployment: env.WORKER_VERSION?.id ? { status: 'VERIFIED', detail: 'Cloudflare runtime version ' + env.WORKER_VERSION.id + ', release tag ' + (env.WORKER_VERSION.tag || 'UNAVAILABLE') + '. Target ownership, secret preflight and remote smoke evidence are recorded by the release operator; this is not a backup/restore proof.' } : { status: 'UNAVAILABLE', detail: (env.DEPLOYMENT_STAGE === 'private-preview' ? 'Preview configuration present. ' : 'Development runtime. ') + 'Remote deployment/version and REQUIRED_SECRETS_CONFIGURED are operator release gates, not inferred from local secret presence.' },
+      worker: { status: 'VERIFIED', detail: 'Authenticated shared backend request executed on ' + (env.DEPLOYMENT_PLATFORM ?? 'cloudflare-worker') + '; not independent cloud deployment proof.' },
+      deployment: env.DEPLOYMENT_PLATFORM === 'cloudflare-pages' ? { status: 'CONFIGURED', detail: 'Pages Functions server build commit ' + (env.RELEASE_COMMIT || 'UNAVAILABLE') + ', dirty=' + (env.RELEASE_DIRTY || 'UNAVAILABLE') + '. Deployment ID and binding identity require independent Cloudflare API and remote acceptance verification; build metadata alone is not LIVE VERIFIED.' } : env.WORKER_VERSION?.id ? { status: 'VERIFIED', detail: 'Cloudflare runtime version ' + env.WORKER_VERSION.id + ', release tag ' + (env.WORKER_VERSION.tag || 'UNAVAILABLE') + '. Target ownership, secret preflight and remote smoke evidence are recorded by the release operator; this is not a backup/restore proof.' } : { status: 'UNAVAILABLE', detail: (env.DEPLOYMENT_STAGE === 'private-preview' ? 'Preview configuration present. ' : 'Development runtime. ') + 'Remote deployment/version and REQUIRED_SECRETS_CONFIGURED are operator release gates, not inferred from local secret presence.' },
       alerts: { status: 'UNAVAILABLE', detail: 'No monitored alert integration verified.' }
     }, lastHealthCheck: now.toISOString(),
-    limitations: 'Counters measure only requests reaching this Worker, UTC hourly buckets (boundary hour included), retained 30 days; not lifetime or Cloudflare edge traffic. Events retained 7 days, sampled to 200/hour, latest 50 displayed. AUTH_SUCCESS also counts SESSION_CREATED. Expiry is observed on attempted use, not for idle sessions. Last login timestamps cover retained counters. Credential fingerprints only; no tokens, cookies, content or raw IP recorded. Audit failures return 503; inspect state before retrying a mutation.'
+    limitations: 'Counters measure only requests reaching the shared backend (Pages and reference Worker combined when sharing D1), UTC hourly buckets (boundary hour included), retained 30 days; not lifetime or Cloudflare edge traffic. Events retained 7 days, sampled to 200/hour, latest 50 displayed. AUTH_SUCCESS also counts SESSION_CREATED. Expiry is observed on attempted use, not for idle sessions. Last login timestamps cover retained counters. Credential fingerprints only; no tokens, cookies, content or raw IP recorded. Audit failures return 503; inspect state before retrying a mutation.'
   };
 }
 export async function credentialMutation(request: Request, db: D1Database, env: Env, context: AccessContext): Promise<Response | null> {
@@ -91,7 +96,7 @@ export async function credentialMutation(request: Request, db: D1Database, env: 
     const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join('');
     const digest = await fingerprint(token); const createdAt = new Date().toISOString();
     const environment = env.DEPLOYMENT_STAGE === 'private-preview' ? 'private-preview' : 'development';
-    const installation = 'PENDING manual installation: save this token securely; run wrangler secret put OWNER_ACCESS_TOKEN --config wrangler.preview.jsonc in your own terminal. Login with the new token to verify installation. Until then the current token remains active.';
+    const installation = 'PENDING operator installation: save this token securely; run ' + secretCommand(env) + ' through your own Cloudflare account, then redeploy Pages if applicable. Login with the new token to verify installation. Shared D1 requires coordinated secret updates in Pages and reference Worker: successful replacement login rotates the prior fingerprint globally. Until installation the current token remains active.';
     data = { token, fingerprint: digest, createdAt, environment, filename: 'vestrenhq-owner-credential.txt', fileContent: `VestrenHQ\nPurpose: application owner authentication (not a Cloudflare API token)\nCreated: ${createdAt}\nEnvironment: ${environment}\nSECRET: store securely; never upload, commit or send in chat. Cannot be retrieved from the server.\nToken: ${token}\n${installation}\n`, status: 'pending', installation } satisfies GeneratedCredential;
     statements = [db.prepare("INSERT INTO owner_credentials(fingerprint,created_at,status) VALUES (?,?,'pending')").bind(digest, createdAt)]; category = 'CREDENTIAL_GENERATED';
   } else if (path === '/api/credentials/cancel') {

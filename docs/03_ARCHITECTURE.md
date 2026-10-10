@@ -1,82 +1,42 @@
 # 03 — VestrenHQ Architecture
 
-**Status:** target architecture; implementation is incomplete.  
-**Operating constraints:** Cloudflare-first, free-tier-first, provider-neutral, fail-closed, no GitHub Actions.
+Updated 2026-10-10. Primary release target is a NEW Cloudflare Pages project, per docs/29 and docs/30. The old Worker and legacy Pages application are preserved reference resources, not the product deployment target. No Actions, automatic Git integration, public signup or paid-provider activation.
 
-## 1. System boundaries
+## Implemented architecture
 
 ```text
-React + TypeScript + Vite (static assets)
-        |
-        v
-Cloudflare Worker API (typed handlers; Hono only if useful)
-        |
-        +--> Auth + server-side project authorization
-        +--> Control plane: quotas, approvals, audit, task lifecycle
-        +--> Agent planner -> validated tool registry -> verifier
-        +--> Workers AI / optional model adapters
-        +--> Research/search adapter + safe public URL fetch
-        +--> File parsing, deterministic analysis, artifact generation
-        +--> ExecutionProvider -> Daytona sandbox (V1 target)
-        |
-        +--> D1: users, projects, conversations, runs, sources, metadata, audit
-        +--> R2: uploaded/generated file bodies and artifacts
-        +--> Durable Objects only if live coordination needs them
+React 19 + TypeScript + Vite -> dist/index.html and /assets/*
+Cloudflare Pages Functions functions/[[path]].ts
+  -> src/pages.ts thin EventContext adapter
+  -> src/worker.ts existing shared Request/Response backend
+     -> auth, exact-Origin CSRF, owner-scoped data, quotas, audit
+     -> D1 projects/sources/tasks/artifacts/session hashes/fingerprints
+     -> optional Workers AI/Groq/Tavily (disabled)
+  -> context.next() for Pages static assets and SPA fallback
 ```
 
-## 2. Stack decisions
+Every request is included in generated `_routes.json` (`/*`, no excludes), so shared security headers and real policy pages are retained. API failures never reach SPA fallback. The Pages Functions compiler produces `dist/_worker.js`; this is a Pages runtime bundle, not a separate deployed Worker or proxy to the old Worker. `/privacy`, `/terms`, `/support`, `/pricing`, `/status` remain server-rendered policies. React route refresh uses Pages' normal SPA asset fallback; API JSON errors retain their status.
 
-| Layer | V1 decision | Guardrail |
-|---|---|---|
-| UI | React + TypeScript + Vite | Accessible, responsive, honest capability states |
-| API | Cloudflare Worker / Wrangler | Validate all input; never run untrusted code in Worker |
-| Auth | Existing owner-only gate during private dogfooding; OIDC/session layer before public multi-user release | A shared owner token is not production multi-user auth |
-| Authorization | Server-side project/tenant checks | Fail closed; never trust client-supplied owner/project IDs |
-| Model | Workers AI initial candidate plus adapters only when justified | Hard caps; no hidden paid fallback |
-| Search | Provider-neutral SearchProvider | Real URLs, retrieval timestamps, citation checks, quota hard stop |
-| Metadata | D1 | Migrations, scoped queries, export/deletion |
-| Artifacts | R2 when needed | Authorize every download through server-side metadata |
-| Sandbox | Daytona behind ExecutionProvider | Time/resource/output limits, task-scoped files, cleanup proof |
-| Source control | GitHub branches/commits/push | Review diff; require approval for external writes |
-| Deployment | Wrangler + Cloudflare Workers | Manual preflight and post-deploy smoke test; no GitHub Actions |
+`src/worker.ts` remains the native Worker entry and shared implementation. `wrangler.preview.jsonc` is the preserved Worker reference configuration. Canonical `wrangler.jsonc` now uses supported Pages fields (`pages_build_output_dir`, compatibility date, vars, D1), without Worker `main`, `assets`, `version_metadata`, routes or cron fields. PM2 runs `wrangler pages dev dist` on port 3000, using local D1, not remote persistence.
 
-Do not add every optional library or provider at once. Keep vendor SDKs behind adapters. Durable Objects are not mandatory unless a real coordination requirement is demonstrated.
+## D1 identity and shared-state implications
 
-## 3. Canonical task lifecycle
+The selected database is the verified existing `vestrenhq-private-preview`, ID `86787a64-0479-4ee6-96ca-5e9387a9b781`. Worker settings confirm that actual ID. Remote schema and exact migration ledger 0001–0004 were queried before binding Pages; no raw migration replay, recreation, data migration or deletion. Legacy `vestren-workbench` DB `21921969-a688-4e56-9662-17d0bf34e657` is not used.
 
-`created → validated → planned → awaiting_approval → queued → running → verifying → succeeded | failed | cancelled | quota_blocked`
+Data: owner-scoped conversations/projects, immutable task evidence snapshots, normalized provided sources, editable artifacts with revision CAS, usage reservations, session hashes, credential fingerprints/lifecycle, hourly access counters and sampled events. Small bounded artifacts live in D1; R2 is not required. Manual briefs use supplied excerpts, no URL fetch or inference.
 
-A task is not successful because the model says “done.” Verification must use real evidence appropriate to the task: valid source links, deterministic calculation checks, file reopening, sandbox exit status, or explicit user acceptance.
+Pages and reference Worker share D1 and the same active owner secret. Secret values transfer privately, never through frontend configuration. Host-only cookies are separate per hostname; project data, quotas, audit and fingerprint lifecycle are shared. Active credential rotation/revocation or revoke-all affects shared state globally. Operators must coordinate secret updates across both runtimes; remote acceptance cancels only its own candidate and expires/logs out only its own synthetic session. Destructive regressions use fresh isolated local D1.
 
-## 4. Daytona execution boundary
+## Security and provenance
 
-Daytona is the selected V1 sandbox. The Worker should authorize a task, create a bounded sandbox via a server-side adapter, transfer only scoped files, execute approved commands, collect bounded logs/artifacts, and attempt cleanup on success, failure, and timeout. Enforce execution deadlines, output limits, safe paths, concurrency limits, and network restrictions. Do not pass broad production credentials into the sandbox.
+Eight-hour HttpOnly/Secure/SameSite=Strict `__Host-` sessions, SHA-256 verifiers, fixed server owner ID, exact same-origin mutations, bounded input/output/concurrency, idempotency and optimistic artifact edits are reused, not reimplemented. No tokens in D1/browser storage/audit. New replacement plaintext is returned once after authenticated explicit generation; dashboard has no retrieval API.
 
-No E2B fallback and no mock-as-production-success. The current repository tree does not show the Daytona adapter under src/. If it exists in another implementation, port it into this canonical repository and test its contract before enabling Build execution.
+Build script records actual Git HEAD and dirty status in the server bundle, not client assets. `/api/health.deployment` exposes only build provenance; no invented Cloudflare version ID. Pages dashboard marks build identity CONFIGURED, runtime D1/schema queries VERIFIED; independent API deployment ID/SHA and remote login/workflow acceptance are separate release evidence.
 
-## 5. Trust and cost
+## Future targets, NOT implemented
 
-- Secrets are server-side Cloudflare secrets, never frontend variables or committed files.
-- Missing identity, authorization, provider configuration, quota, or tool permission fails closed.
-- Retrieved pages, uploaded files, repository content, and model output are untrusted data.
-- External writes, publishing, deployments, sending, purchasing, and spending require explicit approval.
-- Bound request size, context, output, time, concurrency, retries, and daily usage.
-- Provider status must distinguish disabled, configured, live-verified, quota-exhausted, and error.
-- Do not pool free quotas into a paid multi-user service unless provider terms clearly allow it.
-- Use D1 for metadata and R2 for binary bodies; authorize every read and delete.
+Daytona remains the selected sandbox direction, no E2B substitution. Public multi-tenant identity, arbitrary execution, uploads, full-page retrieval, R2 binary artifacts, Duitku, monitored alerts and cloud restore rehearsal remain separate gates. Optional providers require verified free quota/privacy/overage policy and explicit approval. Public paid launch stays NO-GO.
 
-## 6. Commercial readiness is also architecture
+## Release
 
-Before public multi-user release, add verified login/session revocation, tenant/project isolation, durable conversation and project storage, user export/deletion, usage accounting, support/feedback, privacy/terms, and a manual incident/rollback process. Product-market fit cannot be solved by infrastructure alone: instrument task completion, corrections, repeat use, and cost per useful work product.
-
-## 7. Release process without GitHub CI
-
-1. Work on a feature branch and push to GitHub.
-2. Run npm run typecheck, npm test, and npm run build locally.
-3. Inspect the diff and confirm no secrets or unrelated changes.
-4. Verify Cloudflare account, Worker target, D1 IDs, bindings, secrets, and quota ceilings.
-5. Deploy explicitly with Wrangler only after preflight.
-6. Run a small deployed smoke test and inspect Cloudflare logs.
-7. Record commit, deployment URL, smoke-test result, provider state, known gaps, and rollback steps.
-
-The Cloudflare deployment is not a replacement for tests. GitHub Actions are intentionally excluded; release verification is manual and recorded.
+Direct main commits and normal pushes only. Clean install/typecheck/tests/Pages build/static secret scan, real local Pages browser workflow, read-only cloud preflight, explicit CLI preview then main deployment, remote Pages API/browser acceptance. No PR, force push, Actions or automatic pipeline. Domain/DNS/nameservers are intentionally untouched; the owner will attach the custom domain later. See NOW.md and docs/24 for actual evidence and rollback.

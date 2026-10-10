@@ -1,100 +1,50 @@
-# VestrenHQ — Owner-operated Cloudflare BYOK release
+# VestrenHQ — Manual Pages release and recovery runbook
 
-Updated 2026-10-10. Native Worker + Assets + D1; no Pages conversion, Genspark Hosted Access Rules/identity dependency, Actions, PRs, force-push, DNS, paid providers or payments. Work directly on current main. Owner controls infrastructure credentials and application credentials separately.
+Updated 2026-10-10. This filename is retained for stable links. NEW Pages is the primary target per docs/29–30. Worker and legacy Pages are preserved. No GitHub Actions, automatic deploy integration, PR, feature branch, force push, custom-domain, DNS/nameserver changes, payments or paid-provider activation.
 
-## Actual resource status
+## Verified selection
 
-BYOK setup and `npx wrangler whoami` succeeded. Initial read-only inventory had 9 unrelated D1 databases and 1 unrelated Worker, no Vestren match. With explicit autonomous provisioning authorization, the dedicated `vestrenhq-private-preview` D1 and Worker were created; no unrelated resource or DNS was changed. D1 ID: `86787a64-0479-4ee6-96ca-5e9387a9b781`. Migrations 0001–0004 completed remotely; rerun reported no migrations to apply and schema/index/ledger queries verified them. Preview URL returned by actual deployment: https://vestrenhq-private-preview.sparkmind-support.workers.dev.
+- Account: `a167a50f1272635d3c1145aab3cd8f98`, verified via secure BYOK setup/whoami.
+- New Pages name selected after inventory: `vestrenhq-private` (absent at initial audit).
+- Canonical Pages configuration: `wrangler.jsonc`, output `dist`, production branch `main`, compatibility `2026-10-10`.
+- Reused D1: `vestrenhq-private-preview`, `86787a64-0479-4ee6-96ca-5e9387a9b781`. Actual Worker binding, DB name, expected table columns and exact ledger 0001–0004 verified. No migration replay or new DB required.
+- Legacy Pages `vestren-workbench` and DB `21921969-a688-4e56-9662-17d0bf34e657` untouched.
+- Old native Worker configuration remains `wrangler.preview.jsonc`; current reference version at audit `06310e94-09f2-498f-8563-0263eb2f93ec`, empty tag. Historical first tagged version is not current release proof.
+- See NOW.md for actual Pages deployment IDs, source SHA and acceptance results. Configuration alone is not cloud proof.
 
-- `wrangler.jsonc`: LOCAL ONLY, development stage, emulator database ID. Never use for remote deploy/migrations.
-- `wrangler.preview.jsonc`: remote Worker name/account (verified by whoami), DB binding `DB`, migrations directory `migrations`; **`d1_databases[0].database_id` is the verified real dedicated ID above**. Version metadata binds WORKER_VERSION, and extra version-preview URLs are explicitly disabled. No fabricated ID.
-- Secrets: only **OWNER_ACCESS_TOKEN** mandatory for the manual workflow. Local ignored `.dev.vars` is configured for tests; a separate remote secret was securely installed, rotated, revoked/recovered and verified by real login. Active owner credential was delivered as an authenticated private download, not committed or printed. GROQ_API_KEY and TAVILY_API_KEY are optional and disabled, not required for this release. CLOUDFLARE_API_TOKEN is an infrastructure credential in the owner's shell/manager only; never send it to Vestren APIs/D1/browser or credential downloads.
-- `REQUIRED_SECRETS_CONFIGURED = true`: read-only remote target/schema/secret-name preflight passed, then actual valid owner login confirmed the secret. Local login alone never proves remote setup.
+## Operator sequence (executed by the authorized agent, not delegated)
 
-## Local QA and owner bootstrap
+1. Fetch/normal-merge current main, inspect clean tree/diff, account/resource inventory, migration ledger and secure token input availability. Never print tokens or full binding values.
+2. `npm ci`, `npm run typecheck`, `npm test`, `npm run build`, `npm run qa`, `npm audit --json`, `git diff --check`.
+3. Apply migrations to the LOCAL emulator only with `npm run db:migrate:local`. For an existing remote DB, first compare ledger/schema. Never replay raw ALTER statements. This release already has all remote migrations; no apply operation is needed.
+4. Stop PM2 process/clean port 3000, build first, start `ecosystem.config.cjs` (Pages dev), curl health, run `test:browser` and `test:workflow`. Optional provider UI tests are explicitly mocked; actual manual workflow is unmocked.
+5. Create the new Pages project once using verified unused name, `main` production branch and compatibility date. No Git integration or workflow creation.
+6. Privately pipe the EXISTING current application token into `wrangler pages secret put OWNER_ACCESS_TOKEN --project-name vestrenhq-private`. The infrastructure API token never enters application code. Verify preview and production encrypted secret type via API; secret-name presence is not proof of login.
+7. Commit directly main; build the clean commit. Build embeds server-only SHA/dirty provenance in compiled Functions, never plaintext secrets. Do not deploy a dirty build.
+8. Deploy a preview using the CLI deployment branch label `pages-acceptance` (not a Git branch). Record returned deployment ID/URL and API `commit_hash`, environment, stages and actual bindings. Run explicit `remote-pages-smoke.mjs` with URL/expected SHA/deployment ID.
+9. After preview passes, explicitly deploy the same clean main commit with `--branch main --commit-hash <actual SHA>`, then remote-test returned immutable URL and default project pages.dev hostname. Read-only `release:check -- --online` confirms both environments' D1 ID, owner secret type, ledger and no Git source.
+10. Record evidence and push main normally. Verify published main, build health commit, Cloudflare deployment metadata and final health again. Documentation-only follow-up commits distinguish tested application source checkpoint from release evidence checkpoint.
 
-```sh
-npm ci
-npm run typecheck
-npm test -- --reporter=dot
-npm run qa
-npm run build
-npm run db:migrate:local
-pm2 start ecosystem.config.cjs
-curl -fsS http://localhost:3000/api/health
-npm run test:browser
-npm run test:workflow
-git diff --check
-```
+Wrangler has no `pages deploy --dry-run` in the installed CLI. Supported `pages functions build`, generated routing validation, local actual Pages runtime and read-only preflight are the packaging gates; do not claim a nonexistent dry-run command passed.
 
-Build before PM2; on restart stop the registered process and clean port 3000. Browser tests use explicit mocked providers; workflow test uses real local Worker/D1, including credential generation/TXT download/copy/cancellation. No vendor calls or remote secret installation. Original migration files 0001–0003 remain unchanged; apply additive 0004. Legacy sessions must re-login. Tests instantiate fresh workerd/D1 per case to isolate the installed alpha Miniflare proxy lifetimes.
+## Shared credential and recovery safety
 
-First login or lost-token recovery requires an owner-operated bootstrap; never fetch old plaintext or put it in chat. In your trusted checkout, generate a separate 256-bit application secret into a private ignored file without printing it:
+The initial Pages secret is independently installed using a secure 0600 input, not assumed inherited from Worker. Reuse the existing current token because D1 owner fingerprints/sessions are global. Pages and Worker host-only cookies differ, but data/usage/audit/lifecycle state is shared.
 
-```sh
-node --input-type=module -e 'import {randomBytes} from "node:crypto"; import {writeFileSync} from "node:fs"; writeFileSync(".dev.vars.owner-bootstrap.txt",randomBytes(32).toString("hex"),{flag:"wx",mode:0o600});'
-```
+Replacement generation returns plaintext once after authenticated explicit confirmation; only SHA-256 fingerprint/status persist. Download/copy are explicit authorized actions. Save in password manager before installing. Use Pages secret put and redeploy Pages; coordinate reference Worker secret update before replacement login. Successful new login globally rotates old fingerprint and deletes old-credential sessions. No grace period, no restoration of revoked/cancelled/rotated secrets. A fresh token is needed for lost/compromised-token recovery. Runtime infrastructure secrets never go to browser/chat/D1.
 
-Store it in your password manager using a private editor/import. For local use, privately set OWNER_ACCESS_TOKEN in ignored `.dev.vars`, chmod 600, then restart Worker. For remote use, after verifying the target, pipe only the raw application token into the secret command below. Do not use shell literals, VITE variables or the Cloudflare API token. Remove the bootstrap file after secure storage; use separate local/remote credentials.
+Revoke-all and active credential revoke affect both runtimes. Do not repeat destructive acceptance against a shared owner workspace. Local fresh-workerd/D1 regressions test rotation/revocation/recovery/races. Remote Pages acceptance generates/cancels its own pending candidate, targets exactly its own synthetic session for expiry, logs out only its own session, cleans only its own project, and does not overwrite either runtime's secret. Prior isolated Worker lifecycle evidence is historical, not falsely relabeled Pages live proof.
 
-## Reusable explicit remote release sequence
+## Remote acceptance and evidence boundaries
 
-The initial provisioning/deployment and acceptance below were executed by the authorized agent, not delegated to the owner. Reuse these commands only after inspecting actual target state; do not create duplicate databases. There is still no CI or unattended deployment workflow.
+`RUN_REMOTE_SMOKE=true REMOTE_PAGES_URL=<returned URL> EXPECTED_RELEASE_SHA=<actual SHA> EXPECTED_DEPLOYMENT_ID=<actual ID> node scripts/remote-pages-smoke.mjs` is an explicit operator test only, never normal npm test, CI or automatic deployment. Optional invalid-login/rate probes are explicit and respect throttle; no quota reset or IP spoof.
 
-1. Verify current main/clean tree and final commit, run complete local QA at that commit, scan source/history/assets; record every exit code.
-2. Securely load the owner's Cloudflare token; `npx wrangler whoami`. Inspect read-only D1/Worker inventory and confirm exact account and target. Never reuse unrelated resources.
-3. Owner may create the dedicated D1 later, only if absent:
-   `npx wrangler d1 create vestrenhq-private-preview`
-   Insert the actual returned ID into **wrangler.preview.jsonc → d1_databases[0].database_id**, review/commit directly to main. Do not edit the emulator ID to pretend release readiness.
-4. For an existing target, export a backup to ignored `.qa/` with a verified owner-approved command such as:
-   `npx wrangler d1 export vestrenhq-private-preview --remote --config wrangler.preview.jsonc --output .qa/preview-backup.sql`
-   Review actual schema/migration history and rehearse recovery in a separately approved isolated DB. Backups can contain sensitive data; never upload/commit them casually.
-5. After target/schema review, manually apply additive migrations:
-   `npx wrangler d1 migrations apply vestrenhq-private-preview --remote --config wrangler.preview.jsonc`
-   Confirm all four migrations, session fields and intact project data. No destructive schema reset.
-6. Securely set the owner app secret through your own terminal/dashboard, for example:
-   `npx wrangler secret put OWNER_ACCESS_TOKEN --config wrangler.preview.jsonc < .dev.vars.owner-bootstrap.txt`
-   Wrangler can create a missing Worker during secret setup; this is a remote mutation requiring verified target/owner authorization. Never use the metadata-rich downloaded TXT as stdin: import only its token line privately, without printing it.
-7. `npx wrangler secret list --config wrangler.preview.jsonc` shows names only. Run `npm run release:check -- --online`: read-only account/DB identity, Worker secret-name and required schema check. Exit 2 means BLOCKED; do not deploy. A successful presence gate is not proof of token entropy/value or a successful deployed login.
-8. Validate packaging with `npx wrangler deploy --dry-run --config wrangler.preview.jsonc`; with the gate passing, clean final main and approved release scope, manually run `npx wrangler deploy --config wrangler.preview.jsonc`.
-9. Record actual deployment/version ID and workers.dev URL. No URL may be guessed or claimed before Cloudflare returns it. Keep all provider flags false, no AI binding, no custom domain/routes.
-10. Perform deployed smoke tests below. Only promote remote auth to VERIFIED after actual successful login and revocation checks; if any fails, stop, retain sanitized request IDs and use recovery/rollback.
+Independent Cloudflare deployment ID/SHA/binding API, HTTPS health/build identity, static assets byte equality, SPA refresh and real policies, denial/CSRF, owner cookie/login, real dashboard/counters/schema, safe candidate cancellation, actual D1 synthetic writes independently queried, manual evidence/provenance/replay/CAS/export/reopen/browser/mobile/deletion, targeted expiry and logout. Sanitized reports live in ignored `.qa/`; no cookies/token payloads retained in reports. Known secret scan covers source/client/server bundle/history and ordinary remote assets/API/audit/verifiers, not a universal platform telemetry guarantee. Pages log sampling, active credential rotation/revoke-all remote retest, sustained load and backup restore are NOT_TESTED unless separately recorded.
 
-The read-only preflight script never creates resources, installs secrets, migrates or deploys. No deployment automation was added. The account ID is configuration, not an authentication credential; it was obtained from actual whoami, not guessed.
+## Rollback and data
 
-## App credential lifecycle and recovery
+Inspect Pages deployment history and identify a verified known-good security-capable production deployment. Use Cloudflare Pages' rollback API for that exact project/deployment ID only after checking eligibility; preview deployments are not production rollback targets. An explicit forward-fix/redeploy of known-good main code is another option. No rollback was rehearsed in this release, and no prior Pages production exists before first promotion.
 
-Authenticated Access & Security → Authentication & Credentials → Generate replacement. Server Web Crypto generates 32 random bytes. Only generation response contains plaintext; no GET retrieval. Save/download/copy explicitly; each export action rechecks owner session and Origin. Browser memory is cleared on panel close/logout/reload; filename/URL/audit contain no token. D1 stores SHA-256 fingerprint, creation date (NULL for externally created tokens) and lifecycle status only.
+Do not drop tables or reverse migrations; code rollback must remain compatible with 0004 credential/session enforcement. Database restoration requires an approved isolated restore plan and integrity proof. Credential recovery is not database restore proof. Shared data retention remains lazy 30 days; audit aggregates 30 days/events 7 days capped 200/hour/latest 50, tombstones retained. Inspect revisions/idempotency after audit 503 because an ordinary mutation may already have committed.
 
-Generation is PENDING and does not change the Worker secret. Install through your own Cloudflare account, then click Verify replacement login. Single-secret architecture has **no grace period**: old sessions fail as soon as the runtime secret changes; successful new login marks the old fingerprint rotated and deletes old sessions. A failed verification cannot install or revoke credentials automatically. Save replacement before installation; confirm secret length/target and recover with a NEW token through Cloudflare if needed. Cancelled/revoked/rotated fingerprints are never valid again, including after rollback. Do not restore a rotated old token as a recovery shortcut.
-
-Revoke all sessions leaves the current application token usable. Revoke ACTIVE credential deletes all sessions and blocks that fingerprint; restoring access requires installing a NEW secret through the owner's Cloudflare account. Keep a separate infrastructure recovery channel/password manager. Never distribute owner credentials to customers.
-
-## Smoke checklist
-
-- Public shell/health/policies return no private data; health says owner-only/publicLaunch false.
-- Unauthenticated GET projects/tasks/artifacts/security and POST credential generation/export authorization fail 401; cross-origin mutations fail 403. Missing owner secret fails safely.
-- Owner login returns HttpOnly/SameSite=Strict/Secure host cookie on HTTPS; no raw token in dashboard/events/errors.
-- Real dashboard has successful/failed/unauthorized counters, actual active sessions/expiry and schema probes; cloud deployment/alerts remain UNAVAILABLE unless separately operator-proven.
-- Generate → download/copy → cancel; confirm candidate was not installed. Test actual rotation only after secure replacement/recovery preparation; do not lock out the operator just for a smoke test.
-- Create source/project/manual brief, edit/save/export/reopen/delete; no vendor calls.
-- Logout/revoke-all deny the former cookie; reload and delayed responses cannot restore private state.
-- Inspect redacted application events and Cloudflare logging configuration. Never log cookies, authorization headers, secret responses or content. Provider/payment flags stay disabled.
-
-## Audit and rollback
-
-Counters: requests reaching this Worker only, UTC hourly buckets, 30-day lazy retention; boundary hour included, not lifetime/edge analytics. Detailed events retain 7 days, max 200/hour, latest 50 shown. AUTH_SUCCESS also increments SESSION_CREATED; revocation counts are actions, not number of removed sessions. Expiry events are observed rejected requests, not unique idle expirations. Fixed action categories/request UUIDs, no raw paths/body/tokens/IP. Credential fingerprint/status tombstones persist to enforce revocation; plaintext does not. Failed audit writes return 503; login/revocation/generation metadata+audit are transactional. Other workspace mutations may already have committed: inspect state and use idempotency/revisions, never retry blindly.
-
-For a bad deployed version: inspect `npx wrangler deployments list --config wrangler.preview.jsonc`, identify the known-good version, and use `npx wrangler rollback <verified-version-id> --config wrangler.preview.jsonc` only after checking installed CLI help/target. Preserve additive schema; do not drop populated tables. Rolling back to pre-0004 auth code can lose credential binding/revocation enforcement—prefer a forward fix or a known-good security-capable version. Data recovery requires a verified backup restored into an explicitly approved isolated DB, integrity checks, then deliberate binding switch. Rotate compromised app secrets through the owner account; Cloudflare infra credentials never enter app recovery.
-
-## Executed remote acceptance — 2026-10-10
-
-First tagged app deployment of source `a2e46a23ef5c58e95c1ad438575c89fabfd004e3`: version `8b750ba6-1aaf-4793-8223-4cdd122467b5`. Secret rotation/recovery created new versions and removed their commit tag; final explicit redeploy restores a commit-tagged version. Obtain the final ID/tag from `/api/health` and the release record; do not mistake a secret-change version or earlier checkpoint for the final release.
-
-`RUN_REMOTE_SMOKE=true ALLOW_PREVIEW_CREDENTIAL_TESTS=true` acceptance against the new empty dedicated preview passed 14 checkpoint groups: health/version; anonymous private API/action denial; invalid/valid login and HTTPS cookie flags; exact-Origin rejection; real D1 project/source/manual brief/idempotency/CAS/export/reopen/delete; targeted synthetic session expiry; logout; real Worker-secret rotation with old-session rejection; active credential revocation and recovery using a securely saved NEW token; no known plaintext credentials in ordinary responses/assets/audit/verifiers; actual browser owner dashboard; revoke-all; login throttle 429; server counters. One valid recovery login respected the throttle by waiting 104 seconds, with no counter reset/IP spoof. All synthetic business records were deleted, and smoke sessions revoked.
-
-Remote log sampler observed three trace events, zero application console/exception entries and no known secrets. Request trace headers were deliberately excluded from persisted evidence. Initial sampler cleanup timed out after writing results; its own lingering tail processes were terminated and bounded rerun exited 0. This small sample is not a guarantee about all Cloudflare/provider logging or future behavior.
-
-Credential delivery uses an owner-authenticated file wrapper; unauthenticated access was actually tested and returned 403. No delivery URL/value is stored in this repository. This is a protected download, not an automatically self-deleting/single-use link; owner should securely import then delete the private delivery file. Local temporary plaintext inputs are removed after final verification/delivery. App plaintext remains non-retrievable after generation.
-
-Remote rollback/restore rehearsal, sustained load/all-browser testing, monitored alerts and paid/vendor integrations remain NOT_TESTED. No public registration, commercial launch, payments/Duitku, Daytona, paid inference, custom-domain or DNS activation occurred.
+`vestren.biz.id` is intentionally NOT attached. No DNS or nameserver operation is part of this release; owner connects it later. Optional providers, Duitku and Daytona remain disabled/unimplemented; public paid launch NO-GO.

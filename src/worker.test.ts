@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker, { type D1Database, type Env } from "./worker";
+import { handlePages } from './pages';
 // Real workerd/D1 integration adds transactional audit queries; this is not a provider timeout.
 vi.setConfig({ testTimeout: 20000, hookTimeout: 30000 });
 let mf: Miniflare; let db: D1Database; let env: Env; let session: string;
@@ -36,6 +37,25 @@ beforeEach(async () => {
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 afterAll(async () => { await mf?.dispose(); });
 describe("Worker API with real local D1/SQLite; inference MOCKED", () => {
+  it('reuses real D1 authentication and CRUD through the Pages adapter without asset fallback', async () => {
+    const next = vi.fn(async () => new Response('unexpected SPA'));
+    const call = (path: string, method = 'GET', body?: unknown, extra = {}) => handlePages({ request: new Request('https://workspace.example' + path, { method, headers: { origin: 'https://workspace.example', cookie: session, 'content-type': 'application/json', ...extra }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), env, next }, { commit: 'test-pages-commit', dirty: false });
+    expect((await call('/api/session')).status).toBe(200);
+    const id = crypto.randomUUID();
+    expect((await call('/api/projects', 'POST', { title: 'Pages adapter fixture' }, { 'idempotency-key': id })).status).toBe(201);
+    expect((await call('/api/projects/' + id)).status).toBe(200);
+    expect((await call('/api/unknown')).status).toBe(404);
+    expect((await call('/api/projects/' + id, 'DELETE')).status).toBe(200);
+    const snapshot = await (await call('/api/security')).json() as SecuritySnapshot;
+    expect(snapshot.configuration.d1.status).toBe('VERIFIED');
+    expect(snapshot.configuration.deployment.status).toBe('CONFIGURED');
+    expect(snapshot.configuration.deployment.detail).toContain('test-pages-commit');
+    const generated = await (await call('/api/credentials/generate', 'POST', { confirm: true })).json() as { installation: string };
+    expect(generated.installation).toContain('wrangler pages secret put');
+    expect((await call('/api/session', 'DELETE')).status).toBe(200);
+    expect((await call('/api/projects')).status).toBe(401);
+    expect(next).not.toHaveBeenCalled();
+  });
   it('reports only supplied runtime version metadata without fabricating cloud verification', async () => {
     const local = await (await request('/api/health', 'GET', undefined, false)).json() as { version: unknown };
     expect(local.version).toBeNull();

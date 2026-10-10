@@ -1,73 +1,29 @@
-# NOW — VestrenHQ
+# NOW — VestrenHQ Pages release
 
-## Current release — 2026-10-10
+Updated 2026-10-10. Current owner direction is docs/29 + docs/30: NEW Pages project, default pages.dev only, no custom domain/DNS/nameserver operations. Worker URL is reference only, not the deliverable.
 
-**DEPLOYED: owner-authenticated Cloudflare BYOK preview. Public/paid production remains NO-GO.**
+## Audit and implementation checkpoint
 
-- Repository: Sparkmind-obp-off/Vestrenhq; direct main, no PR/feature branch/Actions/force-push.
-- Verified starting HEAD: `e7241219bf8b665dbcc264a14c375560b84aaa7a`.
-- First tested/deployed source checkpoint: `a2e46a23ef5c58e95c1ad438575c89fabfd004e3` (provisioning/version metadata/safe remote acceptance + exact remote/infrastructure secret scan).
-- Actual URL returned by Wrangler: **https://vestrenhq-private-preview.sparkmind-support.workers.dev**.
-- First tagged app version: `8b750ba6-1aaf-4793-8223-4cdd122467b5`.
-- Credential rotation/recovery necessarily created subsequent secret-change versions, initially without commit tags. Final explicit redeploy restores a release-commit tag and disables extra version-preview aliases. Read `/api/health.version` and verify its tag against origin/main; the final ID/SHA are recorded in the operator's final report, not invented/self-referenced here.
+- Actual upstream main `bc00f2b` normal-merged into local main; no PR/feature branch/force rewrite/Actions.
+- Selected NEW Pages name `vestrenhq-private`; verified unused in connected account inventory before creation.
+- Existing Worker `vestrenhq-private-preview` preserved, health HTTP 200; current version at audit `06310e94-09f2-498f-8563-0263eb2f93ec`, tag empty. No current-task Worker deploy or secret mutation.
+- Legacy Pages `vestren-workbench` and its unrelated DB preserved, not selected.
+- REUSE verified D1 `vestrenhq-private-preview`, ID `86787a64-0479-4ee6-96ca-5e9387a9b781`. Actual Worker binding, DB name, expected session/artifact/source/security columns and exact four migration names queried remotely. No already-applied migration replay. Initial projects/tasks/artifacts all zero; acceptance creates/removes only synthetic data.
+- Pages adapter `functions/[[path]].ts` -> `src/pages.ts` -> existing shared router/security/D1 contracts. `context.next()` handles assets/SPA only; API errors/policies remain real. Generated `_worker.js` and `_routes.json` include all paths. Root config is supported Pages configuration, reference Worker config retained.
+- Build embeds server-only real HEAD/dirty provenance. Dashboard says Pages build CONFIGURED; Cloudflare deployment ID/SHA/bindings require independent remote verification, not fabricated version metadata.
 
-## Executed infrastructure work
+## QA checkpoint
 
-Connected owner account was authenticated using secure BYOK setup and `wrangler whoami`. Initial inventory: 9 unrelated D1s, 1 unrelated Worker, no Vestren match. With explicit autonomous authorization, created exactly one dedicated D1 and one dedicated Worker named `vestrenhq-private-preview`; unrelated resources were not modified.
+Clean `npm ci`, typecheck and Pages build succeeded. First new Pages D1 adapter test failed with 415 because its fixture omitted the required JSON Content-Type; fixed fixture header without weakening validation. Rerun: **71 tests, 5 files, all passed**. Optional providers remain MOCKED in unit/UI tests; no live vendor proof.
 
-Real D1 ID: **86787a64-0479-4ee6-96ca-5e9387a9b781**, captured from successful Cloudflare creation, inserted into wrangler.preview.jsonc and verified against remote name. Migrations 0001–0004 applied in order; rerun reported no pending migrations. Schema, indexes and migration ledger queried remotely. No destructive reset or guessed ID. Existing local emulator configuration remains separate.
+Further local Pages browser workflow, read-only cloud preflight, project creation, secret installation, deployment and remote acceptance are PENDING until factual evidence is recorded below. No deployment completion is inferred from this implementation checkpoint. Historical Worker a2e46a2 had 67 tests and prior isolated remote lifecycle acceptance; that is not new Pages proof.
 
-OWNER_ACCESS_TOKEN is a separate 256-bit application secret, not a Cloudflare API token. Bootstrap installed via private stdin; real remote rotation/revocation/recovery verified and the final NEW replacement installed. Only fingerprints/session hashes/lifecycle metadata in D1. The final owner credential is delivered through an authenticated private file download; unauthenticated access was tested and returned 403. No value or credential delivery URL committed/printed. Protected delivery is not an automatically expiring/single-use link: import into a password manager and delete the private delivery file afterwards. Local temporary plaintext inputs are removed after final verification/delivery.
+## Safety boundaries
 
-`npm run release:check -- --online`: exit 0, real target/schema/required secret name verified, **REQUIRED_SECRETS_CONFIGURED = true**; actual successful remote login proves operational use beyond presence. DB, ASSETS and Cloudflare WORKER_VERSION bindings verified. Providers all remain disabled; no AI binding, payment, sandbox, public signup, DNS or custom domain activated. Version metadata contains public deployment identifiers only.
+Pages will independently install the same current active owner token via private input; Worker secret presence does not prove Pages setup. Shared D1 fingerprint state means destructive credential rotation/revoke-all impacts both runtimes. Those regressions are tested in fresh isolated local D1; Pages remote acceptance generates/cancels its own pending candidate, expires/logs out only its own synthetic session and cleans only its own project.
 
-## Actual QA at source checkpoint a2e46a2
+No paid AI/search/sandbox/payment, public registration, custom domain, DNS or nameserver operations. Domain will be connected manually later by the owner. Public/paid launch remains NO-GO; live retrieval/inference, tenant identity, monitored alerts, backup restore/rollback rehearsal, sustained load, Daytona and Duitku remain NOT_TESTED/disabled.
 
-| Check | Exit / observed result |
-|---|---|
-| `npm ci` | 0 / PASS |
-| `npm run typecheck` | 0 / PASS |
-| `npm test -- --reporter=dot` | 0 / PASS, **67 tests**, 4 files, no skips |
-| `npm run qa` | 0 / PASS, source/build/history plus exact known local/remote/infrastructure secret scans |
-| `npm run build` | 0 / PASS, 31 modules, SPA JS 256.11 KB / 79.11 KB gzip |
-| `npm audit --json` | 0 / PASS, zero reported vulnerabilities |
-| `npm run db:migrate:local` | 0 / PASS, no pending migrations |
-| `npm run test:browser` | 0 / PASS, actual denial/setup, optional-provider successful UI explicitly MOCKED |
-| `npm run test:workflow` | 0 / PASS, real local owner/security/credential download/copy/cancel and entire manual project workflow |
-| `npm run release:check -- --online` | 0 / PASS, remote identity/schema/secret-name gate |
-| `wrangler deploy --dry-run --config wrangler.preview.jsonc` | 0 / PASS, 68.42 KiB / 19.92 KiB gzip, no mutation |
-| `git diff --check` | 0 / PASS |
-| Actual tagged `wrangler deploy --config wrangler.preview.jsonc` | 0 / PASS, returned URL/version above, 1 ms startup |
+## Release evidence
 
-Final config/documentation commit gets the complete applicable suite rerun before final publish/redeploy; verify that SHA and operation evidence in the final report. Do not mistake an earlier local-only 51/66-test checkpoint for current remote evidence. Lint is not configured. Optional vendor tests are mocked, not live-provider verification.
-
-## Actual remote security acceptance
-
-`RUN_REMOTE_SMOKE=true ALLOW_PREVIEW_CREDENTIAL_TESTS=true` on the NEW empty dedicated preview completed exit 0 with **14 passing checkpoint groups**:
-
-1. Health, owner-only/publicLaunch false and runtime version/commit tag.
-2. Anonymous private projects/tasks/artifacts/security and credential actions denied 401.
-3. Invalid login rejected; valid login works; HttpOnly/Secure/SameSite=Strict host-cookie/8h expiry; real dashboard/counters/schema.
-4. Cross-origin action 403 and absent private-resource 404.
-5. Remote D1 project/source/manual evidence provenance/idempotency/CAS/edit/export/reopen/delete.
-6. Targeted synthetic session expiry rejected 401.
-7. Logout revokes the tested cookie.
-8. Actual Worker-secret rotation, replacement login, old-cookie rejection and old fingerprint rotated.
-9. Actual active credential revoke, denied protected request, safe recovery with pre-saved NEW replacement, verified login.
-10. Known secrets absent from ordinary responses/assets/audit/verifier rows; remote assets equal local built files.
-11. Actual remote browser renders owner dashboard with runtime data.
-12. Revoke-all denies former cookie.
-13. Login throttle returns 429.
-14. Server-side counters updated for auth/denial/session/credential events.
-
-Recovery login respected the throttle with a bounded 104-second wait; no spoofed IP or quota reset. All synthetic business records were removed; smoke sessions revoked. Final handoff preserves the verified replacement credential. Repeated destructive lifecycle tests are opt-in only and must not be casually run against an active owner's workspace.
-
-Remote log sampling rerun exited 0: three trace events, zero application console/exception entries, no known credentials; request trace headers were excluded from retained evidence. First sampler wrote results but its tail subprocess lingered and timed out; only those tail processes were terminated and bounded cleanup rerun succeeded. This limited sample is not a universal guarantee about platform telemetry.
-
-## Boundaries and remaining risks
-
-Standalone native Worker application identity/private-record authorization; no Genspark Hosted Access Rules/identity dependency. Public shell, policy pages and minimal non-sensitive health/version metadata are intentionally accessible. Private business data/admin endpoints remain server-authorized. Credential download delivery uses an authenticated file account solely for handoff, not app login.
-
-Remote backup/restore and actual rollback rehearsal, sustained load/Free CPU measurements, all-browser/screen-reader testing, monitored alerts, public tenant identity, live vendor quota/privacy/overage proof, Duitku/Daytona and market/legal/support readiness remain NOT_TESTED/blocked for public paid launch. Manual briefs still do not fetch URLs or perform inference. Audit detail retention is 7 days sampled to 200/hour, aggregates 30 days, lazy cleanup; credential fingerprint tombstones persist for revocation. No credentials in screenshots, Git, public URLs or ordinary application responses.
-
-No routine deployment task remains delegated to the owner. Owner action is only to securely receive/store the delivered application credential and sign in to use the deployed preview. Operational runbook and current gaps are docs/24 and docs/27.
+PENDING actual Pages output and remote verification. Final release will record exact source SHA, preview and production deployment IDs/returned URLs, actual runtime D1/secret verification, acceptance results, preservation checks and Git push proof here. See docs/24 for operator process and docs/27 for capability status.

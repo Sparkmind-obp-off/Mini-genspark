@@ -1,47 +1,34 @@
-# VestrenHQ — Deployed owner-only BYOK preview and current gaps
+# VestrenHQ — NEW Pages release gap assessment
 
-Updated 2026-10-10. Verified starting main `e7241219bf8b665dbcc264a14c375560b84aaa7a`; tested initial release source `a2e46a23ef5c58e95c1ad438575c89fabfd004e3`. The final release SHA/version is obtained from actual `/api/health.version` and verified against origin/main after final tagged redeploy; the initial checkpoint is not mislabeled as the final release.
+Updated 2026-10-10. Current authoritative scope: docs/29 and docs/30, new Pages/default pages.dev, no custom domain. Direct main, no PR/feature branch/force push/Actions. Old Worker URL is reference only.
 
-## Executed, not delegated
+## Audit / selection
 
-Owner explicitly authorized autonomous D1 creation/migrations/secret installation/deployment/security acceptance. Secure BYOK identity/inventory verified first. Created one dedicated D1 `vestrenhq-private-preview`, ID **86787a64-0479-4ee6-96ca-5e9387a9b781**, and dedicated Worker; no unrelated resource reuse or changes. Four migrations applied remotely, repeated migration runner reported none pending, schema/index/ledger verified. OWNER_ACCESS_TOKEN securely installed via stdin; real rotation/revocation/recovery verified with a pre-saved NEW replacement, and protected owner credential download prepared. Infrastructure credentials never enter frontend, D1 or that download.
+Latest upstream main `bc00f2b` normal-merged; connected BYOK account verified. Inventoried Pages and D1 before mutation. New project `vestrenhq-private` created, ID `8f0c8bd1-c5fb-4dc1-9e59-87062552e16a`. Worker `vestrenhq-private-preview`, legacy Pages `vestren-workbench` and its DB are preserved.
 
-Actual deployed URL returned by Cloudflare: **https://vestrenhq-private-preview.sparkmind-support.workers.dev**. First tagged app version: **8b750ba6-1aaf-4793-8223-4cdd122467b5**. Subsequent secret changes create versions without tags; final explicit redeploy restores a release tag and disables extra version-preview aliases. Public shell/policies/minimal health metadata are intentionally reachable; all private data/admin endpoints remain authenticated. No custom DNS/domain, signup, payment/Duitku, paid provider, Daytona, PR, feature branch, force-push or Actions introduced.
+REUSED database `vestrenhq-private-preview`, `86787a64-0479-4ee6-96ca-5e9387a9b781`: actual Worker binding ID, D1 metadata, required columns and exact migration ledger 0001–0004 verified through Cloudflare APIs. No raw migration replay or database creation/deletion. Legacy DB `21921969-a688-4e56-9662-17d0bf34e657` never bound. Initial business record counts zero; synthetic acceptance data only.
 
-Standalone native Worker identity/private-record authorization, not Genspark Hosted admission/identity. Protected download is only a credential handoff facility, not an application access dependency. It returned 403 to unauthenticated requests. File values/delivery URLs are not in Git or logs; delivery is not an automatically self-deleting/single-use link. Owner should save the credential securely and delete the protected handoff file.
+## Current status at implementation checkpoint
 
-## Capability/evidence matrix
-
-| Capability | Status | Actual evidence |
+| Area | Status | Evidence / next gate |
 |---|---|---|
-| Cloudflare account access | VERIFIED / PASS | whoami + initial read-only inventory + successful dedicated create/edit/deploy operations |
-| D1 target/schema/migrations | PASS remote | Real returned ID matches name; 0001–0004 and indexes/ledger queried; safe rerun |
-| Required secret/bindings | VERIFIED remote | Worker secret-name preflight, DB/ASSETS/WORKER_VERSION bindings, real owner login; REQUIRED_SECRETS_CONFIGURED true |
-| Owner denial/login/cookies | PASS remote | Anonymous reads/actions 401, invalid login 401, valid login 200, HttpOnly/Secure/SameSite=Strict/__Host cookie |
-| CSRF/resource checks | PASS remote | Foreign Origin 403, absent project 404; cross-owner negative tests remain local because single-owner only |
-| Sessions | PASS remote | Exactly targeted synthetic expiry rejected; logout/revoke-all reject old cookie; real active session counters |
-| Rotation/revocation/recovery | PASS remote | API generates pending candidate; agent installs Worker secret; replacement login works; old cookie rejected/hash rotated. Active token revoked; recovery NEW token installed and verified |
-| Credential copy/TXT UI | PASS local, live generation verified | Real local authenticated download/copy; remote owner generation/ordinary-response non-retrieval; protected final handoff denial verified |
-| Core workflow | PASS remote | Synthetic project/source/manual brief/replay/reopen/CAS save/export/delete, no provider calls; synthetic business content removed |
-| Access & Security | PASS remote | API real counts/events/schema/version plus actual remote Chromium owner panel renders |
-| Audit/privacy checks | PASS scoped remote | Server counters updated; no known plaintext tokens in ordinary responses/assets/audit/verifier rows; source/history scans. Sampled 3 trace events with zero console/exception entries; not an exhaustive log guarantee |
-| Login rate limit | PASS remote | Bounded probes return 429; valid recovery respected throttle wait, no reset/spoof |
-| Local QA | PASS | 67 tests/4 files, typecheck/build/QA/audit/local migrations/browser/workflow at source checkpoint; final release revalidation required/recorded separately |
-| Actual cloud deploy | PASS | Wrangler returned workers.dev URL/version; actual health/version/tag verified; final exact metadata must match published main |
-| Cloud restore/rollback rehearsal | NOT_TESTED | No prior customer data; recovery plan only. Secret recovery test is not database restore proof |
-| Operational alerts/long load/all browsers | NOT_TESTED | No monitored alerts, sustained Free CPU measurements or all-browser/screen-reader proof |
-| Public/paid product gates | BLOCKED / NOT_TESTED | No public tenant identity, merchant/payment lifecycle, live vendor entitlement/privacy/quota proof, commercial validation or legal/support readiness |
+| New Pages project | IMPLEMENTED | Cloudflare creation returned new name/ID; main production branch |
+| Pages owner secret | CONFIGURED | Separate private stdin installation to production and preview; secret type/name read-only API; login proof pending |
+| Pages adapter | IMPLEMENTED / TESTED local | Thin EventContext adapter reuses shared backend; real Pages dev/browser workflow |
+| D1 schema | VERIFIED remote | Name/ID/Worker binding/columns/exact four migration names queried; preservation counts |
+| Pages runtime D1 binding | PENDING remote | Local config is not enough; actual deployment API and synthetic runtime write/read query required |
+| QA | TESTED | 71 tests/5 files, typecheck/build/QA/audit; actual local Pages browser workflow passed |
+| Packaging | TESTED local | Correct module directory `_worker.js/index.js`, generated routes all paths, node syntax check and real Pages dev |
+| Actual Pages deploy/remote acceptance | PENDING | Do not substitute old Worker evidence; NOW.md will record returned IDs/URLs/SHA |
+| Custom domain/DNS | INTENTIONALLY NOT DONE | Owner will connect later; not a blocker and no current-task zone/DNS operations |
+| Public/paid launch | NO-GO | Tenant identity, legal/support/market evidence, vendor/free-only proof and operations still missing |
 
-## Changed implementation surface
+## Failures found and repaired
 
-`wrangler.preview.jsonc` now holds actual dedicated ID, immutable runtime version binding and preview_urls false. `src/worker.ts` exposes only safe version metadata on public health; `src/security.ts` shows runtime-backed version instead of fabricated deployment state. Worker regression test verifies unavailable vs supplied version binding; total 67 tests. QA additionally scans exact known remote/infrastructure secrets without printing them.
+New D1 adapter fixture omitted JSON Content-Type, correctly rejected 415; fixed fixture, did not weaken validation. Wrangler deprecated Functions `--outfile` produced multipart, rejected by Pages dev; switched to module-directory `--outdir` and actual runtime verified. Pages cloud config validation rejected Worker-only `account_id`; removed from Pages configuration and retained verified account selection in operator-only checks. First owner secret command failed before writing due to that config error; later independent production/preview installations succeeded. None was hidden or mislabeled PASS.
 
-`remote-preview-smoke.mjs` is an explicit bounded operator script, never invoked by normal npm test, CI or automatic deploy. Requires actual dedicated workers.dev URL and RUN_REMOTE_SMOKE=true. Critical token mutations separately require ALLOW_PREVIEW_CREDENTIAL_TESTS=true and an empty newly provisioned preview; do not rerun against the owner's active workspace casually. Respects throttle with a bounded wait; no IP spoof/quota reset. Persists only sanitized checkpoint results, not headers/cookies/body values. Plaintext inputs remain ignored/private only until secure handoff/final verification, then removed.
+## Safety / remaining limits
 
-## Residual security/operational limits
+Shared D1 uses one global owner credential lifecycle. Both runtimes initially use the same securely transferred active token; host cookies differ but projects, audit, quotas and fingerprint state are shared. Active rotation/revocation/revoke-all remotely would affect existing owner access. Local isolated D1 regressions cover those behaviors; current Pages remote smoke intentionally does not repeat destructive lifecycle operations. It generates/cancels its own pending credential and expires/logs out its own synthetic session. Historical isolated Worker rotation/recovery acceptance remains historical, not Pages live proof.
 
-Owner app token must remain private, never distributed to public users. Single-secret installation has no grace period; save replacement before changing it. The browser does not receive Cloudflare deployment credentials and cannot autonomously write Worker secrets; the authorized deployment operator did the current installation/rotation work. Fingerprint/status tombstones persist to prevent revoked/cancelled/rotated token reuse. Session binding invalidates old cookies immediately after secret change.
-
-Counters cover only requests reaching the Worker, UTC hourly windows (boundary hour included), 30-day retention; detailed samples 7 days/200 per hour/latest 50. Not lifetime/edge analytics. Audit failure returns safe 503; ordinary workspace mutation might already have committed, so inspect revisions/idempotency/state before retry. Cloud trace headers were intentionally excluded from sampled application-log evidence. First log sampler cleanup timed out; its own processes were stopped and bounded rerun exited 0. No secrets leaked in tool output.
-
-Manual evidence is supplied-not-retrieved, not AI inference/full-page research. Public/paid launch remains NO-GO despite successful private deployment. Future operational work is recovery/alerts/private dogfooding and separately approved provider/commercial gates—not more deployment instructions handed to the owner.
+Source/client/server bundle/Git/ordinary remote audit/verifier secret scans are scoped checks, not universal platform telemetry guarantees. Pages platform log sampling, actual cloud restore/rollback rehearsal, sustained Free CPU measurement, all-browser/screen-reader proof and monitored alerts remain NOT_TESTED. Manual evidence is supplied-not-retrieved and not AI. Daytona direction preserved without E2B substitution; Duitku/payments/providers disabled. No automatic infrastructure deployment added.

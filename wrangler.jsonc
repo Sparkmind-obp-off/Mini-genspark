@@ -1,31 +1,23 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "vestrenhq-private-preview",
-  "main": "src/worker.ts",
+  "name": "vestrenhq-private",
+  "pages_build_output_dir": "./dist",
   "compatibility_date": "2026-10-10",
-  "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/privacy", "/terms", "/support", "/pricing", "/status"]
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "vestrenhq-private-preview",
-      "database_id": "00000000-0000-0000-0000-000000000001", // LOCAL ONLY emulator ID. Remote release uses wrangler.preview.jsonc, never this config.
-      "migrations_dir": "migrations"
-    }
-  ],
+  "send_metrics": false,
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "vestrenhq-private-preview",
+    "database_id": "86787a64-0479-4ee6-96ca-5e9387a9b781",
+    "migrations_dir": "migrations"
+  }],
   "vars": {
-    "DEPLOYMENT_STAGE": "development",
+    "DEPLOYMENT_STAGE": "private-preview",
+    "PAGES_PROJECT": "vestrenhq-private",
     "DAILY_REQUEST_LIMIT": "20",
-    "AI_MODEL": "@cf/meta/llama-3.1-8b-instruct-fp8-fast",
     "LLM_PROVIDER": "cloudflare",
     "FREE_PLAN_CONFIRMED": "false",
     "GROQ_FREE_PLAN_CONFIRMED": "false",
     "TAVILY_FREE_PLAN_CONFIRMED": "false",
     "SEARCH_MONTHLY_LIMIT": "100"
-  },
-  "observability": { "enabled": false }
+  }
 }
