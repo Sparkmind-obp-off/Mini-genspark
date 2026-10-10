@@ -6,7 +6,7 @@
 - VestrenHQ is the canonical product repository.
 - Keep one source of truth for product, architecture, scope, pricing, and release status.
 - Keep GitHub Actions workflows absent.
-- Use a repository editing environment and local terminal for implementation/review, GitHub for source history/push, and Cloudflare Workers/Wrangler for runtime/deployment. No Cursor-specific tooling is required.
+- Implement and review code in the project workspace and local terminal; use GitHub for source history/push and Cloudflare Workers/Wrangler for runtime/deployment.
 - Do not modify real Cloudflare resources until account, Worker name, D1 ID, bindings, and ownership are verified.
 - Gate: operating documents agree and placeholder resources are clearly marked.
 
