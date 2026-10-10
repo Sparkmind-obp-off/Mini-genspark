@@ -1,80 +1,59 @@
-# Vestren Full-Stack Architecture — V1
-
-## Product shape
-
-Vestren is one AI workspace with five modes: **Chat, Research, Create, Analyze, Build**. The UI is unified; projects, conversations, task runs, permissions, artifacts and audit records share one control plane.
+# VestrenHQ Full-Stack Architecture — V1
 
 ## Architecture map
 
-```text
-React + TypeScript + Vite
-        │ HTTPS / typed API
-        ▼
-Cloudflare Pages Functions + Hono (target API layer)
-        │
-        ├── Identity: Auth0 OIDC/JWKS
-        ├── Control plane: tenant/project RBAC, approvals, quotas, audit
-        ├── Agent orchestrator: plan → validate → tools → verify
-        ├── AI provider adapter (Workers AI candidate; live verification required)
-        ├── Research adapter (search + page retrieval; provider configurable)
-        ├── GitHub adapter (least privilege, branch-scoped writes, approvals)
-        └── ExecutionProvider ── Daytona API (V1 selected sandbox)
-        │
-        ├── Cloudflare D1: relational metadata and operational state
-        └── Cloudflare R2: authorized file bodies and artifacts
-```
+React + TypeScript + Vite frontend
+→ Cloudflare Worker API / Wrangler
+→ control plane (identity, project authorization, quota, approvals, audit)
+→ agent orchestration (plan → validate → tools → execute → verify)
+→ Workers AI/model adapter, search/research adapter, GitHub adapter, Daytona ExecutionProvider
+→ Cloudflare D1 metadata + Cloudflare R2 artifacts.
 
-## Component responsibilities
+Durable Objects are optional and should only be introduced for a demonstrated coordination need.
 
-- **Frontend:** workspace navigation, conversations, task timeline, provider status, project context, approval prompts and artifact preview/download. It never authorizes itself or stores provider secrets.
-- **API/backend:** schema validation, authentication, authorization, rate/usage limits, idempotency, orchestration, audit, safe error normalization.
-- **Control plane:** tenant and project scope, role checks, tool allowlists, human approval for external side effects, run state and policy decisions.
-- **Agent runtime:** proposes typed plans. Server validates each action before a tool is called. Retrieved pages, repository content and model output are untrusted data.
-- **D1:** users, tenants, memberships, projects, conversations, messages, runs, tool calls, artifact metadata, usage and audit events. Use additive migrations and scoped queries.
-- **R2:** uploaded/generated file contents and build artifacts. Check authorization in D1 before serving every object.
-- **Daytona:** isolated code/build sandbox accessed server-side. Adapter contract covers create, write/read files, command execution, process management, bounded output, timeout, normalized errors and destroy/cleanup.
-- **AI providers:** common interface so model choice does not leak into product/domain logic. Provider must be marked mock/configured/live-verified; no implicit paid fallback.
-- **Research providers:** separate search/retrieval adapters and an evidence ledger with source URL/title and observed dates. Do not fabricate citations when no provider is active.
-- **GitHub:** separate credential and adapter boundary. Start with read-only, then branch-scoped commits. Push/PR/deploy require explicit approval. Keep GitHub tokens away from browser code, model prompts and sandbox environment unless narrowly scoped and specifically required.
+## Frontend
+One responsive workspace with Chat, Research, Create, Analyze, Build, Projects, Runs, Settings, and Artifacts. The UI displays real capability status, progress, sources, usage limits, errors, approvals, and verification. It does not contain provider secrets and cannot grant itself permissions.
 
-## Daytona decision and current verification state
+## Backend and control plane
+Cloudflare Worker routes validate all input, authenticate the caller, enforce server-authoritative project scope, reserve quotas, create task runs, validate tool calls, and record redacted audit events. Keep provider SDKs inside adapters. Model output and retrieved content are untrusted data; model output cannot authorize itself.
 
-**Decision:** Daytona is the selected V1 sandbox provider. Do not substitute E2B or automatically fall back to a paid provider.
+## Data layer
+- D1: user/tenant records, memberships, projects, conversations/messages, task runs, tool events, artifact metadata, usage, and audit.
+- R2: uploaded/generated binary files and artifacts where needed.
+- Use additive migrations and scoped queries. Authorize every file read/download through server-side metadata.
+- Provide user export and deletion before public multi-user release.
 
-**Verification:** the checked-in Mini Genspark workspace currently reports code execution as disabled. The existing Vestren Workbench README currently documents E2B/mock-E2B, not a verified Daytona adapter. Therefore this architecture records the approved target; it does not claim that the Daytona adapter is already present in the consolidated workspace. Locate/port the user's existing Daytona implementation or implement the adapter in the next execution phase, then run contract tests and a real authorized smoke test before enabling it.
+## AI and research providers
+Workers AI is the initial runtime-model candidate. Search/retrieval is a separate adapter. Provider states must distinguish disabled, needs configuration, configured, live-verified, quota-exhausted, and error. No hidden paid fallback. Research output must retain real source URLs and retrieval dates; if live search is not available, disclose it.
 
-## Security invariants
+## Daytona execution
+Daytona is the selected V1 sandbox provider. Implement or port the server-side adapter behind ExecutionProvider. Required contract: create sandbox, transfer scoped files, execute command, collect bounded stdout/stderr and exit status, retrieve artifacts, enforce timeout/output limits, and destroy/cleanup. Restrict network and external side effects. Do not pass broad production secrets to the sandbox. Do not execute untrusted code in the Worker process.
 
-1. Secrets live only in server-side secret storage.
-2. Every API route enforces authentication and server-authoritative tenant/project authorization.
-3. Model output cannot grant permissions or bypass tool schemas.
-4. Daytona sandboxes receive only task-scoped files and credentials, ideally no secrets at all.
-5. Bound CPU/time/output/files; always attempt cleanup after success, failure and timeout.
-6. Never treat a random artifact key as authorization; authorize each D1/R2 access.
-7. GitHub write actions are scoped, diff-visible, approval-gated and audited.
-8. No hidden provider fallback. The user sees unavailable/configured/mock/live-verified status accurately.
-9. Logs redact tokens, credentials, private file contents and sensitive prompts.
-10. Deployment, external writes, publishing and spending require explicit policy and user approval.
+The current VestrenHQ repository tree does not show a Daytona adapter under src/. If it exists in another repository/branch, port that actual implementation into this canonical repo. Until adapter code and a real bounded smoke test are verified, show Daytona as not yet integrated/live-verified. No E2B fallback and no mock-as-production-success.
 
-## Implementation order
+## GitHub integration
+Use a separate server-side adapter and least-privilege credentials. Begin with repository read, then branch-scoped proposed diffs and commits. Require explicit approval for push, PR creation, deployment, or other external writes. Never expose GitHub credentials to the browser or ordinary model context. Record action and outcome in audit logs.
 
-1. Establish CI and verify the current baseline.
-2. Reconcile the Worker API and Pages Functions/Hono routes; retain one canonical API.
-3. Merge Auth0 identity and D1 tenant/project authorization.
-4. Consolidate D1 migrations and R2 artifact authorization.
-5. Add agent-run lifecycle, typed tools, approval and audit.
-6. Port/implement Daytona adapter and contract tests; run a real smoke test.
-7. Add provider-neutral research and GitHub integrations with least privilege.
-8. Enable production only after CI, security, provider and rollback gates pass.
+## Security and cost invariants
+1. Secrets only in Cloudflare server-side secret bindings.
+2. Fail closed on missing auth, authorization, configuration, quota, or tool permission.
+3. Enforce body/context/output/time/concurrency/retry/daily caps server-side.
+4. No paid fallback, auto top-up, or spend without explicit approval.
+5. Treat repository files, web pages, uploaded files, and tool outputs as untrusted.
+6. Keep logs redacted; never log credentials.
+7. External writes, publishing, sending, purchasing, and deployment require confirmation.
+8. Verify the actual output; a model claim of success is insufficient.
 
-## Cost and provider policy
+## Release process — no GitHub Actions
+1. Work on a feature branch; commit and push to GitHub.
+2. Run npm run typecheck, npm test, and npm run build locally.
+3. Inspect the diff and confirm no secrets, unrelated changes, or misleading capability claims.
+4. Confirm Cloudflare account, Worker target, D1 IDs, bindings, secrets, and quota ceilings.
+5. Deploy explicitly with Wrangler only after preflight.
+6. Run a small deployed smoke test and inspect Cloudflare logs.
+7. Record commit, deployment URL, actual test results, provider state, known gaps, and rollback.
 
-- Free-tier-first, but never assume a service is free merely because an API exists.
-- No automatic paid fallback.
-- Track provider status, quotas, timeouts and usage; enforce app-level caps.
-- Keep optional external providers behind adapters and feature flags.
-- A mock is for deterministic tests and local development only, never a production success substitute.
+Cloudflare deployment is not a test suite. Do not claim checks passed unless actually run.
 
-## Out of scope for this architecture document
-
-This document does not itself merge application source, provision Auth0, create production secrets, deploy Cloudflare resources, verify live Daytona access, or implement the GitHub connector. Those are implementation tasks with explicit tests and release gates.
+## Commercial readiness
+Public multi-user release additionally requires verified login/session revocation, tenant/project isolation, durable project/conversation storage, export/deletion, support/feedback, privacy/terms, usage accounting, incident/rollback process, and evidence of repeat use from a narrow customer segment.
