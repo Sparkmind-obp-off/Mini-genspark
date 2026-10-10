@@ -4,7 +4,7 @@
 
 - **Canonical repo:** Sparkmind-obp-off/Vestrenhq
 - **Active branch:** feat/commercial-foundation-cloudflare-daytona
-- **Operating model:** Cursor for development; GitHub branch/commit/push; no GitHub Actions/CI; local QA + manual Cloudflare Wrangler release.
+- **Operating model:** GitHub branch/commit/push; no Cursor dependency; no GitHub Actions/CI; local QA + manual Cloudflare Wrangler release.
 - **Selected sandbox:** Daytona; no E2B substitution without explicit decision.
 - **Commercial wedge:** evidence-backed research brief → editable action deliverable for solo operators and small teams. This is a hypothesis until validated with real users.
 - **Current release status:** development/prototype; not yet ready to claim public paid launch.
@@ -21,11 +21,11 @@
 - `docs/21_POSITIONING_AND_LANDING_PAGE.md` — honest positioning, landing-page structure, and claim substantiation.
 - `docs/22_GO_TO_MARKET_EXECUTION_PLAYBOOK.md` — staged dogfood, design-partner, paid-pilot, and beta plan.
 - `docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md` — support intake, severity, billing, and incident handling.
-- `docs/24_CURSOR_CLOUDFLARE_MANUAL_RELEASE_RUNBOOK.md` — local QA, Cloudflare preflight, manual deploy, and rollback evidence.
+- `docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md` — local QA, Cloudflare preflight, manual deploy, and rollback evidence.
 - `docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md` — north-star metric, event vocabulary, and experiment logging.
 
 ## Immediate next action
-Use Cursor to implement and verify the first end-to-end workflow using the lowest safe-cost infrastructure: real sign-in → project persistence → live source retrieval with evidence → editable/exportable brief → usage limits → deletion. Dogfood before inviting customers. Keep all integrations capped; add Duitku as a server-side payment adapter only after merchant environment, callback verification, idempotency, and entitlement logic are tested. Treat Daytona Build execution as a separate capability until the real adapter is located/integrated and bounded smoke tests pass.
+Implement and verify the first end-to-end workflow using the lowest safe-cost infrastructure: real sign-in → project persistence → live source retrieval with evidence → editable/exportable brief → usage limits → deletion. Dogfood before inviting customers. Keep all integrations capped; add Duitku as a server-side payment adapter only after merchant environment, callback verification, idempotency, and entitlement logic are tested. Treat Daytona Build execution as a separate capability until the real adapter is located/integrated and bounded smoke tests pass.
 
 ## Known blockers to verify
 - Worker currently states live web search and file upload are not enabled.
@@ -49,4 +49,4 @@ Update this file with the latest commit, exact test results, deployment URL (if 
 - **Tests/build:** not run for this documentation-only update. No test pass is claimed.
 - **Deployment:** none performed. Placeholder D1 ID and legacy resource naming remain deployment blockers.
 - **Branch note:** feature branch is one commit behind main after the previous PR merge; review/synchronize before merge. Do not merge automatically.
-- **Next action:** implement the first end-to-end workflow in Cursor against docs/14, docs/18 and docs/24; run local checks and record evidence before any Cloudflare deployment.
+- **Next action:** implement the first end-to-end workflow against docs/14, docs/18 and docs/24; run local checks and record evidence before any Cloudflare deployment.
