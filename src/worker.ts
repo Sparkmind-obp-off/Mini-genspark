@@ -75,7 +75,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
   }
 
   const expectedToken = env.OWNER_ACCESS_TOKEN ?? "";
-  const submittedToken = request.headers.get("x-mini-owner-token") ?? "";
+  const submittedToken = request.headers.get("x-vestren-owner-token") ?? "";
   if (!expectedToken) {
     return json({ error: "OWNER_TOKEN_NOT_CONFIGURED", message: "Owner-only API is disabled until OWNER_ACCESS_TOKEN is configured as a server secret." }, 503);
   }
