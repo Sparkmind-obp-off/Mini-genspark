@@ -23,12 +23,14 @@ async function cloud(path, body) {
 async function query(sql, params=[]) { return (await cloud('/d1/database/'+config.d1_databases[0].database_id+'/query',{sql,params}))[0]; }
 async function login(value, expected=200) {
   let r=await call('/api/session','POST',{token:value});
-  if(r.status()===429 && expected===200) {
+  if(r.status()===429 && (expected===200 || expected===401)) {
     const wait=(Math.floor(Date.now()/600000)+1)*600000-Date.now()+1500;
     console.log('INFO: respecting login throttle; bounded wait '+Math.ceil(wait/1000)+' seconds, no limit reset or IP spoof.');
     await new Promise(resolve=>setTimeout(resolve,wait)); r=await call('/api/session','POST',{token:value});
   }
-  ensure(r.status()===expected,'Login status mismatch (expected '+expected+', got '+r.status()+')');return r;
+  ensure(r.status()===expected,'Login status mismatch (expected '+expected+', got '+r.status()+')');
+  const sessionValue=/__Host-vestren-session=([^;]+)/.exec(r.headers()['set-cookie']||'')?.[1]; if(sessionValue)protectedValues.push(sessionValue);
+  return r;
 }
 async function install(generated) {
   // Save recoverable private candidate BEFORE changing runtime secret; never print it.
@@ -91,7 +93,7 @@ try {
     await install(recovery);await login(token);
     writeFileSync('.qa/vestrenhq-owner-credential.txt',`VestrenHQ\nPurpose: owner application login (NOT a Cloudflare API token)\nEnvironment: private-preview\nCreated: ${recovery.createdAt}\nSECRET: save in a password manager; never commit, share or paste into chat.\nToken: ${token}\nThis is the verified active replacement; previous smoke credentials were rotated/revoked.\n`,{mode:0o600});
     passed('actual active-credential revocation and recovery with verified NEW replacement');report.credentialLifecycle='PASS';
-  } else passed('credential mutation/rotation tests skipped (NOT_TESTED; separate explicit authorization required)');
+  } else console.log('NOT_TESTED in this run: credential mutation/rotation not repeated on active preview; retain prior lifecycle acceptance evidence.');
   const current=await (await call('/api/security')).json();await noSecret(current,'Secret in ordinary security responses');
   const stored=await query('SELECT * FROM access_events ORDER BY created_at DESC LIMIT 200');await noSecret(stored,'Secret in remote audit records');const verifiers=await query('SELECT * FROM owner_credentials');await noSecret(verifiers,'Plaintext token in credential metadata');
   const html=await (await call('/')).text();await noSecret(html,'Secret in remote shell');

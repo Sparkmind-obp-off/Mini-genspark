@@ -4,12 +4,12 @@ Updated 2026-10-10. Native Worker + Assets + D1; no Pages conversion, Genspark H
 
 ## Actual resource status
 
-BYOK setup and `npx wrangler whoami` succeeded in this environment. Read-only inventory: 9 unrelated D1 databases, 1 unrelated Worker, no Vestren match. The intended isolated target name remains `vestrenhq-private-preview`; it is a naming convention, not a platform private-preview dependency. No remote resource, secret, schema or DNS was changed.
+BYOK setup and `npx wrangler whoami` succeeded. Initial read-only inventory had 9 unrelated D1 databases and 1 unrelated Worker, no Vestren match. With explicit autonomous provisioning authorization, the dedicated `vestrenhq-private-preview` D1 and Worker were created; no unrelated resource or DNS was changed. D1 ID: `86787a64-0479-4ee6-96ca-5e9387a9b781`. Migrations 0001–0004 completed remotely; rerun reported no migrations to apply and schema/index/ledger queries verified them. Preview URL returned by actual deployment: https://vestrenhq-private-preview.sparkmind-support.workers.dev.
 
 - `wrangler.jsonc`: LOCAL ONLY, development stage, emulator database ID. Never use for remote deploy/migrations.
-- `wrangler.preview.jsonc`: remote Worker name/account (verified by whoami), DB binding `DB`, migrations directory `migrations`; **`d1_databases[0].database_id` is empty — PENDING_OWNER_ACTION**. No fabricated ID.
-- Secrets: only **OWNER_ACCESS_TOKEN** mandatory for the manual workflow. Local ignored `.dev.vars` is configured for tests; remote secret not configured/verified. GROQ_API_KEY and TAVILY_API_KEY are optional and disabled, not required for this release. CLOUDFLARE_API_TOKEN is an infrastructure credential in the owner's shell/manager only; never send it to Vestren APIs/D1/browser or credential downloads.
-- `REQUIRED_SECRETS_CONFIGURED = false` until the remote presence/schema/target gate passes; local login does not prove remote setup.
+- `wrangler.preview.jsonc`: remote Worker name/account (verified by whoami), DB binding `DB`, migrations directory `migrations`; **`d1_databases[0].database_id` is the verified real dedicated ID above**. Version metadata binds WORKER_VERSION, and extra version-preview URLs are explicitly disabled. No fabricated ID.
+- Secrets: only **OWNER_ACCESS_TOKEN** mandatory for the manual workflow. Local ignored `.dev.vars` is configured for tests; a separate remote secret was securely installed, rotated, revoked/recovered and verified by real login. Active owner credential was delivered as an authenticated private download, not committed or printed. GROQ_API_KEY and TAVILY_API_KEY are optional and disabled, not required for this release. CLOUDFLARE_API_TOKEN is an infrastructure credential in the owner's shell/manager only; never send it to Vestren APIs/D1/browser or credential downloads.
+- `REQUIRED_SECRETS_CONFIGURED = true`: read-only remote target/schema/secret-name preflight passed, then actual valid owner login confirmed the secret. Local login alone never proves remote setup.
 
 ## Local QA and owner bootstrap
 
@@ -37,7 +37,9 @@ node --input-type=module -e 'import {randomBytes} from "node:crypto"; import {wr
 
 Store it in your password manager using a private editor/import. For local use, privately set OWNER_ACCESS_TOKEN in ignored `.dev.vars`, chmod 600, then restart Worker. For remote use, after verifying the target, pipe only the raw application token into the secret command below. Do not use shell literals, VITE variables or the Cloudflare API token. Remove the bootstrap file after secure storage; use separate local/remote credentials.
 
-## Manual remote sequence — NOT EXECUTED
+## Reusable explicit remote release sequence
+
+The initial provisioning/deployment and acceptance below were executed by the authorized agent, not delegated to the owner. Reuse these commands only after inspecting actual target state; do not create duplicate databases. There is still no CI or unattended deployment workflow.
 
 1. Verify current main/clean tree and final commit, run complete local QA at that commit, scan source/history/assets; record every exit code.
 2. Securely load the owner's Cloudflare token; `npx wrangler whoami`. Inspect read-only D1/Worker inventory and confirm exact account and target. Never reuse unrelated resources.
@@ -85,4 +87,14 @@ Counters: requests reaching this Worker only, UTC hourly buckets, 30-day lazy re
 
 For a bad deployed version: inspect `npx wrangler deployments list --config wrangler.preview.jsonc`, identify the known-good version, and use `npx wrangler rollback <verified-version-id> --config wrangler.preview.jsonc` only after checking installed CLI help/target. Preserve additive schema; do not drop populated tables. Rolling back to pre-0004 auth code can lose credential binding/revocation enforcement—prefer a forward fix or a known-good security-capable version. Data recovery requires a verified backup restored into an explicitly approved isolated DB, integrity checks, then deliberate binding switch. Rotate compromised app secrets through the owner account; Cloudflare infra credentials never enter app recovery.
 
-Remote deployment/login/log inspection/rollback/restore are NOT_TESTED here. There is no live Vestren URL or prior release version to roll back. Public registration, commercial launch, payments/Duitku, Daytona, paid inference and DNS changes remain disabled.
+## Executed remote acceptance — 2026-10-10
+
+First tagged app deployment of source `a2e46a23ef5c58e95c1ad438575c89fabfd004e3`: version `8b750ba6-1aaf-4793-8223-4cdd122467b5`. Secret rotation/recovery created new versions and removed their commit tag; final explicit redeploy restores a commit-tagged version. Obtain the final ID/tag from `/api/health` and the release record; do not mistake a secret-change version or earlier checkpoint for the final release.
+
+`RUN_REMOTE_SMOKE=true ALLOW_PREVIEW_CREDENTIAL_TESTS=true` acceptance against the new empty dedicated preview passed 14 checkpoint groups: health/version; anonymous private API/action denial; invalid/valid login and HTTPS cookie flags; exact-Origin rejection; real D1 project/source/manual brief/idempotency/CAS/export/reopen/delete; targeted synthetic session expiry; logout; real Worker-secret rotation with old-session rejection; active credential revocation and recovery using a securely saved NEW token; no known plaintext credentials in ordinary responses/assets/audit/verifiers; actual browser owner dashboard; revoke-all; login throttle 429; server counters. One valid recovery login respected the throttle by waiting 104 seconds, with no counter reset/IP spoof. All synthetic business records were deleted, and smoke sessions revoked.
+
+Remote log sampler observed three trace events, zero application console/exception entries and no known secrets. Request trace headers were deliberately excluded from persisted evidence. Initial sampler cleanup timed out after writing results; its own lingering tail processes were terminated and bounded rerun exited 0. This small sample is not a guarantee about all Cloudflare/provider logging or future behavior.
+
+Credential delivery uses an owner-authenticated file wrapper; unauthenticated access was actually tested and returned 403. No delivery URL/value is stored in this repository. This is a protected download, not an automatically self-deleting/single-use link; owner should securely import then delete the private delivery file. Local temporary plaintext inputs are removed after final verification/delivery. App plaintext remains non-retrievable after generation.
+
+Remote rollback/restore rehearsal, sustained load/all-browser testing, monitored alerts and paid/vendor integrations remain NOT_TESTED. No public registration, commercial launch, payments/Duitku, Daytona, paid inference, custom-domain or DNS activation occurred.

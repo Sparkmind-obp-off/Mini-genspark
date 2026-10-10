@@ -1,47 +1,73 @@
 # NOW — VestrenHQ
 
-Updated 2026-10-10. Canonical repository: Sparkmind-obp-off/Vestrenhq. Branch: **main**, verified starting HEAD **b526133cfe1dae480f359a2e38e5f10accce9b90**, matching remote main. Earlier divergent local Mini implementation was preserved under a local archive tag; no published history rewrite/force-push. No feature branch, PR, Actions or branch-protection change in this work.
+## Current release — 2026-10-10
 
-## Current objective and implementation
+**DEPLOYED: owner-authenticated Cloudflare BYOK preview. Public/paid production remains NO-GO.**
 
-Owner-operated development/deployment in the owner's Cloudflare BYOK account; native Worker + Assets + D1. No Genspark Hosted Access Rules, hosted identity, Dispatcher or paid membership dependency. The earlier Hosted-rule membership error applied only to platform-hosted admission; it is not a BYOK limitation. Application owner identity and private record authorization are server-side Worker responsibilities, not an attempted Hosted descriptor substitute.
+- Repository: Sparkmind-obp-off/Vestrenhq; direct main, no PR/feature branch/Actions/force-push.
+- Verified starting HEAD: `e7241219bf8b665dbcc264a14c375560b84aaa7a`.
+- First tested/deployed source checkpoint: `a2e46a23ef5c58e95c1ad438575c89fabfd004e3` (provisioning/version metadata/safe remote acceptance + exact remote/infrastructure secret scan).
+- Actual URL returned by Wrangler: **https://vestrenhq-private-preview.sparkmind-support.workers.dev**.
+- First tagged app version: `8b750ba6-1aaf-4793-8223-4cdd122467b5`.
+- Credential rotation/recovery necessarily created subsequent secret-change versions, initially without commit tags. Final explicit redeploy restores a release-commit tag and disables extra version-preview aliases. Read `/api/health.version` and verify its tag against origin/main; the final ID/SHA are recorded in the operator's final report, not invented/self-referenced here.
 
-Implemented: existing projects/excerpts/manual briefs/artifact editing/export/reopen/delete preserved. New authenticated **Access & Security / Authentication & Credentials** panel, real D1 counters/events and session expiry; 256-bit Web Crypto replacement token generated once, explicit authenticated TXT/copy actions, no plaintext retrieval/storage, pending cancellation, manual Worker secret installation and replacement-login verification, revoke-all and active-credential revoke/recovery. Owner secret rotation invalidates old session credential bindings; missing mandatory secret fails closed even for existing cookies. Task reservation now checks the per-project run limit atomically.
+## Executed infrastructure work
 
-0004 is additive: session credential hash/audit ID/date, fingerprint-only credential metadata, access_counts and access_events. 0001–0003 unchanged. Legacy sessions require re-login. Credential creation timestamp is UNAVAILABLE for externally created secrets (NULL, not invented). Dashboard cloud deployment/alerts are UNAVAILABLE; runtime/schema and counters are based on queries. Single-secret installation has no grace period; save the replacement before changing it. No automatic Cloudflare secret write from browser.
+Connected owner account was authenticated using secure BYOK setup and `wrangler whoami`. Initial inventory: 9 unrelated D1s, 1 unrelated Worker, no Vestren match. With explicit autonomous authorization, created exactly one dedicated D1 and one dedicated Worker named `vestrenhq-private-preview`; unrelated resources were not modified.
 
-## Observed candidate QA
+Real D1 ID: **86787a64-0479-4ee6-96ca-5e9387a9b781**, captured from successful Cloudflare creation, inserted into wrangler.preview.jsonc and verified against remote name. Migrations 0001–0004 applied in order; rerun reported no pending migrations. Schema, indexes and migration ledger queried remotely. No destructive reset or guessed ID. Existing local emulator configuration remains separate.
 
-The following were actually executed after implementation, before source commit; final committed-SHA rerun and push evidence must be checked in the release operator's final report/git, not inferred from an old baseline. Ordinary tests use mocked optional vendors; local workflow has no HTTP/vendor mocks.
+OWNER_ACCESS_TOKEN is a separate 256-bit application secret, not a Cloudflare API token. Bootstrap installed via private stdin; real remote rotation/revocation/recovery verified and the final NEW replacement installed. Only fingerprints/session hashes/lifecycle metadata in D1. The final owner credential is delivered through an authenticated private file download; unauthenticated access was tested and returned 403. No value or credential delivery URL committed/printed. Protected delivery is not an automatically expiring/single-use link: import into a password manager and delete the private delivery file afterwards. Local temporary plaintext inputs are removed after final verification/delivery.
 
-| Command | Exit / actual result |
+`npm run release:check -- --online`: exit 0, real target/schema/required secret name verified, **REQUIRED_SECRETS_CONFIGURED = true**; actual successful remote login proves operational use beyond presence. DB, ASSETS and Cloudflare WORKER_VERSION bindings verified. Providers all remain disabled; no AI binding, payment, sandbox, public signup, DNS or custom domain activated. Version metadata contains public deployment identifiers only.
+
+## Actual QA at source checkpoint a2e46a2
+
+| Check | Exit / observed result |
 |---|---|
-| `npm ci` baseline | 0 / PASS; locked dependencies; final-commit reinstall remains part of release sequence |
+| `npm ci` | 0 / PASS |
 | `npm run typecheck` | 0 / PASS |
-| `npm test -- --reporter=dot` | 0 / PASS, **66 tests**, 4 files, no skips |
-| `npm run qa` | 0 / PASS; no workflows, guard/config/source/build/history and exact ignored local-secret scans |
+| `npm test -- --reporter=dot` | 0 / PASS, **67 tests**, 4 files, no skips |
+| `npm run qa` | 0 / PASS, source/build/history plus exact known local/remote/infrastructure secret scans |
 | `npm run build` | 0 / PASS, 31 modules, SPA JS 256.11 KB / 79.11 KB gzip |
-| `npm run db:migrate:local` | 0 / PASS, 0004 applied to local emulator only |
-| `curl -fsS http://localhost:3000/api/health` | 0 / PASS, owner-only/publicLaunch false |
-| `npm run test:browser` | 0 / PASS, actual denial/setup; optional provider success explicitly MOCKED |
-| `npm run test:workflow` | 0 / PASS, real local dashboard → token TXT download → failed replacement verification retains owner access → cancel → existing full project/edit/export/reopen/delete/logout workflow; explicit clipboard completion checked |
-| `npm audit --json` | 0 / PASS, no reported vulnerabilities |
+| `npm audit --json` | 0 / PASS, zero reported vulnerabilities |
+| `npm run db:migrate:local` | 0 / PASS, no pending migrations |
+| `npm run test:browser` | 0 / PASS, actual denial/setup, optional-provider successful UI explicitly MOCKED |
+| `npm run test:workflow` | 0 / PASS, real local owner/security/credential download/copy/cancel and entire manual project workflow |
+| `npm run release:check -- --online` | 0 / PASS, remote identity/schema/secret-name gate |
+| `wrangler deploy --dry-run --config wrangler.preview.jsonc` | 0 / PASS, 68.42 KiB / 19.92 KiB gzip, no mutation |
 | `git diff --check` | 0 / PASS |
-| `npx wrangler deploy --dry-run --config wrangler.jsonc --outdir .qa/worker` | 0 / PASS local packaging only, 68.07 KiB / 19.80 KiB gzip; no deploy |
-| `npm run release:check` | 2 / **PENDING_OWNER_ACTION**, expected stop on missing remote configuration; NOT a deploy PASS |
+| Actual tagged `wrangler deploy --config wrangler.preview.jsonc` | 0 / PASS, returned URL/version above, 1 ms startup |
 
-Intermediate checks failed: TypeScript unused-env/optional-secret typing, corrected; long-lived alpha Miniflare integration instances timed out/bridge failed, corrected with fresh workerd/D1 per test and bounded integration timeout. Full 65-test rerun then passed; the added transactional revocation-race regression brought the final candidate to 66 passing tests. A browser copy assertion initially read the clipboard before asynchronous authorization/copy completed; waiting for the actual completion notice corrected the test, and the real workflow rerun passed. Failures were not hidden by selected-test evidence. Lint not configured. Remote provider/payment/Daytona/Cloudflare deployment/backup restore remain NOT_TESTED.
+Final config/documentation commit gets the complete applicable suite rerun before final publish/redeploy; verify that SHA and operation evidence in the final report. Do not mistake an earlier local-only 51/66-test checkpoint for current remote evidence. Lint is not configured. Optional vendor tests are mocked, not live-provider verification.
 
-## BYOK/resource/secret evidence
+## Actual remote security acceptance
 
-Secure BYOK setup and `wrangler whoami` succeed. Read-only inventory in current environment: **9 D1 databases, 1 Worker, zero Vestren matches**. Prior documentation that this environment lacked checkout/Cloudflare credentials was historical and is superseded.
+`RUN_REMOTE_SMOKE=true ALLOW_PREVIEW_CREDENTIAL_TESTS=true` on the NEW empty dedicated preview completed exit 0 with **14 passing checkpoint groups**:
 
-`wrangler.jsonc` is local-only; `wrangler.preview.jsonc` has the verified owner account and proposed existing target `vestrenhq-private-preview`. Real remote ID belongs at **d1_databases[0].database_id**, currently empty: **PENDING_OWNER_ACTION**. No invented ID or unrelated DB reuse. OWNER_ACCESS_TOKEN is configured in ignored local .dev.vars for tests, not installed/verified remotely. GROQ_API_KEY/TAVILY_API_KEY optional and disabled; no AI binding. CLOUDFLARE_API_TOKEN is deployment infrastructure only, never in app/UI/downloads/Git. **REQUIRED_SECRETS_CONFIGURED = false** for release.
+1. Health, owner-only/publicLaunch false and runtime version/commit tag.
+2. Anonymous private projects/tasks/artifacts/security and credential actions denied 401.
+3. Invalid login rejected; valid login works; HttpOnly/Secure/SameSite=Strict host-cookie/8h expiry; real dashboard/counters/schema.
+4. Cross-origin action 403 and absent private-resource 404.
+5. Remote D1 project/source/manual evidence provenance/idempotency/CAS/edit/export/reopen/delete.
+6. Targeted synthetic session expiry rejected 401.
+7. Logout revokes the tested cookie.
+8. Actual Worker-secret rotation, replacement login, old-cookie rejection and old fingerprint rotated.
+9. Actual active credential revoke, denied protected request, safe recovery with pre-saved NEW replacement, verified login.
+10. Known secrets absent from ordinary responses/assets/audit/verifier rows; remote assets equal local built files.
+11. Actual remote browser renders owner dashboard with runtime data.
+12. Revoke-all denies former cookie.
+13. Login throttle returns 429.
+14. Server-side counters updated for auth/denial/session/credential events.
 
-No remote resource creation, secret installation, migrations, deployment, DNS, payments or sandbox actions occurred. Deployment URL/version: none. BYOK remote release is **BLOCKED by actual D1/secret setup**, not by Hosted membership. Public/paid production remains NO-GO.
+Recovery login respected the throttle with a bounded 104-second wait; no spoofed IP or quota reset. All synthetic business records were removed; smoke sessions revoked. Final handoff preserves the verified replacement credential. Repeated destructive lifecycle tests are opt-in only and must not be casually run against an active owner's workspace.
 
-## Next owner action
+Remote log sampling rerun exited 0: three trace events, zero application console/exception entries, no known credentials; request trace headers were excluded from retained evidence. First sampler wrote results but its tail subprocess lingered and timed out; only those tail processes were terminated and bounded cleanup rerun succeeded. This limited sample is not a universal guarantee about platform telemetry.
 
-Create/identify the dedicated D1 in the verified account (owner may do this later), insert its actual ID in wrangler.preview.jsonc, review schema/backups, apply migrations, install a NEW separate owner application credential privately, and run read-only `npm run release:check -- --online` followed by explicit manual deploy and authenticated/unauthenticated smoke tests. Exact commands, bootstrap/download/rotation/recovery, counter definitions, retention and rollback are in docs/24; current gaps in docs/27.
+## Boundaries and remaining risks
 
-Credential fingerprints/status tombstones persist for revocation; no plaintext. Access counters retain 30 days, sampled detail 7 days/200 per hour/latest 50; lazy authenticated cleanup, not scheduled purge. Audit failure returns 503; ordinary workspace mutations may already have completed, so inspect state/revisions/idempotency before retry. Remote restore/rollback and monitored alerts remain NOT_TESTED. No public signup/payment/provider/DNS activation is authorized by this implementation.
+Standalone native Worker application identity/private-record authorization; no Genspark Hosted Access Rules/identity dependency. Public shell, policy pages and minimal non-sensitive health/version metadata are intentionally accessible. Private business data/admin endpoints remain server-authorized. Credential download delivery uses an authenticated file account solely for handoff, not app login.
+
+Remote backup/restore and actual rollback rehearsal, sustained load/Free CPU measurements, all-browser/screen-reader testing, monitored alerts, public tenant identity, live vendor quota/privacy/overage proof, Duitku/Daytona and market/legal/support readiness remain NOT_TESTED/blocked for public paid launch. Manual briefs still do not fetch URLs or perform inference. Audit detail retention is 7 days sampled to 200/hour, aggregates 30 days, lazy cleanup; credential fingerprint tombstones persist for revocation. No credentials in screenshots, Git, public URLs or ordinary application responses.
+
+No routine deployment task remains delegated to the owner. Owner action is only to securely receive/store the delivered application credential and sign in to use the deployed preview. Operational runbook and current gaps are docs/24 and docs/27.
