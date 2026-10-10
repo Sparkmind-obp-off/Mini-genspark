@@ -42,7 +42,7 @@ Read:
 ## Operating decisions
 
 - **Canonical repository:** VestrenHQ.
-- **Development:** repository edits, local QA, and diff review through the chosen coding environment; no Cursor-specific dependency.
+- **Development:** repository edits, local QA, and diff review in the project workspace.
 - **Source control:** GitHub; branch, commit, inspect diff, push.
 - **No GitHub Actions / GitHub CI.** Use local checks and a manual release checklist.
 - **Runtime and deployment:** Cloudflare Workers + Wrangler.
