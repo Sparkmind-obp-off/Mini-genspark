@@ -137,7 +137,7 @@ Bootstrap succeeds when Vestren can reliably deliver one useful workflow, users 
 - Use docs/21 for the landing page and evidence-backed marketing claims.
 - Use docs/22 for dogfood, design-partner, paid-pilot, and beta stages.
 - Use docs/23 for customer support, billing issues, refunds, and incidents.
-- Use docs/24 for Cursor/local QA and manual Cloudflare Wrangler release.
+- Use docs/24 for local QA and manual Cloudflare Wrangler release.
 - Use docs/25 to measure useful artifacts, repeat use, cost, and experiments.
 
 Free-first does not mean cost-free or safe by default. Confirm actual account limits, provider terms, quotas, and cost ceilings. No customer payment or public launch until the relevant gates are evidenced.
