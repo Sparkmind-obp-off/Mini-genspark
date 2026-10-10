@@ -2,6 +2,14 @@
 
 **Status:** ordered execution plan, not a claim that any unchecked item is complete. One active release objective at a time. local QA + manual Cloudflare Wrangler; no GitHub Actions or CI.
 
+## Observed progress — 2026-10-10
+
+This candidate implements and locally tests the private foundation and the manual-evidence version of the first workflow: owner session → project → permitted supplied excerpts → structured brief → revision-checked editor → saved export → reopen/rename/delete. 51 behavior tests and real local Worker/D1/browser workflow passed; optional provider UI tests are labelled MOCKED. Live retrieval/public auth/payment/cloud recovery/market gates below remain open.
+
+Actual fixes/files, risk and next owner dependency are in docs/18; release matrix in docs/16; exact commands and screenshot provenance in NOW.md; BYOK inventory/dry-run/rollback in docs/24. No Actions workflows were created, no remote resource/migration/DNS/payment was changed, and no release label was promoted to commercial readiness. Daytona remains a separate selected-but-disabled integration, not an execution claim for Build. Small text artifacts use D1; R2 is deferred until a measured binary/storage need exists.
+
+Next critical dependency: identify/approve isolated private BYOK Worker+D1 targets. Then verify account/model/search quota and actual live retrieval, rehearse recovery, and implement public identity/tenant/payment gates only for the approved commercial scope. Do not continue feature breadth or market acquisition on top of unresolved stop-ship gaps.
+
 ## Phase 0 — repository and operating truth
 - VestrenHQ is the canonical product repository.
 - Keep one source of truth for product, architecture, scope, pricing, and release status.

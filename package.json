@@ -12,13 +12,22 @@
     "dev:worker": "wrangler dev --local",
     "db:migrate:local": "wrangler d1 migrations apply mini-genspark --local",
     "qa": "node scripts/qa-workspace.mjs",
-    "test": "npm run qa"
+    "test": "vitest run --maxWorkers=1",
+    "test:browser": "node scripts/browser-acceptance.mjs",
+    "test:live": "node scripts/live-smoke.mjs",
+    "test:workflow": "node scripts/workflow-acceptance.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "jsdom": "^30.1.2",
+    "vitest": "^5.0.3",
+    "miniflare": "^5.20261006.1-alpha",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^4.4.1",

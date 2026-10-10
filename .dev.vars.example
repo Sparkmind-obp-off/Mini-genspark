@@ -1,0 +1,16 @@
+# Copy privately to .dev.vars (gitignored). Never use provider keys as the owner token.
+OWNER_ACCESS_TOKEN=
+# Choose one provider. Account/model quota and no-overage policy must be verified first.
+LLM_PROVIDER=cloudflare
+FREE_PLAN_CONFIRMED=false
+GROQ_API_KEY=
+GROQ_MODEL=llama-3.1-8b-instant
+GROQ_FREE_PLAN_CONFIRMED=false
+TAVILY_API_KEY=
+TAVILY_FREE_PLAN_CONFIRMED=false
+DAILY_REQUEST_LIMIT=20
+SEARCH_MONTHLY_LIMIT=100
+# Optional exact trusted browser origin for reverse proxies; do not include a trailing slash.
+APP_ORIGIN=
+# Public non-sensitive operator address; not verified just because configured.
+SUPPORT_EMAIL=

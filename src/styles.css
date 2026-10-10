@@ -78,7 +78,7 @@ kbd { margin-left: auto; color: #858595; background: #242430; border: 1px solid 
 .composer-mode { margin-left: auto; border: 1px solid rgba(184,161,255,.18); background: rgba(184,161,255,.07); border-radius: 5px; padding: 4px 7px; color: #c8bbff; font-size: 10px; }
 .composer-wrap textarea, .followup-composer textarea { display: block; resize: vertical; width: 100%; color: #ecebf5; background: transparent; border: 0; outline: 0; padding: 17px 1px 9px; font-size: 13px; line-height: 1.7; min-height: 82px; }
 textarea::placeholder, input::placeholder { color: #6f7081; }
-.composer-wrap textarea:focus-visible, .followup-composer textarea:focus-visible { outline: 0; }
+.composer-wrap textarea:focus-visible, .followup-composer textarea:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; }
 .composer-bottom { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,.06); padding-top: 11px; }
 .composer-hint { color: #707182; font-size: 10px; }
 .send-button { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 9px; background: linear-gradient(135deg,#c2b1ff,#9681ed); border: 0; color: #19151f; font-size: 21px; font-weight: 600; line-height: 1; box-shadow: 0 5px 18px rgba(145,117,243,.19); }
@@ -141,6 +141,33 @@ textarea::placeholder, input::placeholder { color: #6f7081; }
 .secondary-button { border: 1px solid var(--line); background: transparent; color: #a6a7b5; }
 .primary-button { border: 1px solid #a18bec; background: #b5a0f8; color: #17141e; }
 .settings-footer { border-top: 1px solid var(--line); color: #757687; font-size: 9px; padding-top: 12px; margin-top: 17px; line-height: 1.6; }
+dialog.settings-modal { color: var(--text); max-height: 90vh; overflow-y: auto; }
+dialog::backdrop { background: rgba(4,5,9,.82); }
+select { margin-left: 10px; padding: 6px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.setup-explanation, .result-limitations { font-size: 12px; line-height: 1.6; color: #c9b697; }
+.task-result { border-bottom: 1px solid var(--line); padding-bottom: 22px; min-width: 0; }
+.task-result pre, .artifact-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.8 ui-monospace, monospace; }
+.task-status { color: var(--green); font: 11px/1.6 ui-monospace, monospace; }
+.source-panel { border: 1px solid var(--line); border-radius: 10px; padding: 15px; }
+.source-panel a { color: var(--purple); overflow-wrap: anywhere; }
+.source-panel small { display: block; font-size: 11px; margin-top: 6px; color: #a5a6b8; }
+.source-panel p { font-size: 12px; line-height: 1.6; }
+.artifact-panel { width: min(100%, 830px); border: 1px solid var(--line); padding: 18px; border-radius: 12px; margin-top: 24px; }
+.artifact-panel h2 { font-size: 20px; }
+.artifact-panel p { font-size: 12px; color: #a5a6b8; }
+.artifact-panel button { margin: 4px; }
+.history-list { max-height: 38vh; overflow-y: auto; }
+.history-item { overflow-wrap: anywhere; }
+.empty-history, .composer-hint, .nav-label, .principles, .starter-text small, .bottom-notice { color: #a1a3b5; }
+@media (max-width: 700px) { .sidebar .history-list { display: flex; max-height: 90px; gap: 8px; overflow: auto; margin-top: 12px; } .history-item { flex: 0 0 180px; } .followup-composer { position: static; } .conversation { min-height: 0; } }
+.project-panel { width: min(100%,830px); padding: 20px; margin-bottom: 26px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.project-panel h2 { font-size: 22px; overflow-wrap: anywhere; }
+.project-panel form { margin: 14px 0; }
+.project-panel textarea, .artifact-panel textarea { width: 100%; resize: vertical; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--bg); padding: 12px; font: 13px/1.7 ui-monospace,monospace; }
+.project-panel .source-panel { margin: 14px 0; }
+.project-panel button { margin-top: 10px; }
+.policy-links { display: flex; flex-wrap: wrap; gap: 14px; padding: 24px 0; font-size: 12px; }
+.policy-links a { color: var(--purple); }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (min-width: 1500px) { .welcome { width: min(100%, 800px); } }
 @media (max-width: 900px) { .sidebar { width: 218px; flex-basis: 218px; } .topbar { padding: 0 22px; } .work-canvas { padding: 38px 22px 28px; } }

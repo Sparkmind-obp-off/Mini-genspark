@@ -75,6 +75,24 @@ Never promise 24/7 support or uptime guarantees unless staffed and measured.
 
 
 
+## Candidate implementation / residual risks — 2026-10-10
+
+Scope inspected: browser → native Worker → real local D1; optional vendor adapters with deterministic mocks; real local manual-evidence workflow; read-only BYOK account inventory. This is an engineering review, not certification, a hosted route-admission policy or a production penetration test. Private owner identity/record authorization is not public tenant authentication.
+
+Implemented defenses: random hashed 8-hour HttpOnly host-cookie sessions, expiry/revocation and UI private-state clearing; exact Origin/CSRF and no wildcard CORS; scoped queries on project/source/task/artifact reads/writes; body/read/time/output limits; UUID input-hashed replay and logical concurrency; mutation/attempt quotas; revision-checked artifact saves; authorized attachments, escaped static HTML and formula-safe CSV; redacted metadata/request IDs; no arbitrary source fetch, code execution, payment or model-selected tool authority. Negative tests cover foreign records, malformed/oversized requests, bad URLs, revoked sessions, source limits, races, provider failures/quotas and partial persistence.
+
+Data: D1 holds necessary questions/results/excerpts/URLs/artifact text, session hashes and minimal counters/audit. Source rows are normalized per project and run evidence snapshots remain immutable. Manual mode does not contact vendors or independently verify its source URLs/content. Optional inference/search sends only bounded data after explicit configuration/policy; provider privacy/account terms remain unverified. No uploads, binary R2, public identity/customer/billing records or tracking are collected by this candidate.
+
+Retention is lazy 30 days on authenticated traffic, not a scheduled guaranteed purge; artifact edits do not extend creation-based retention. Source removal affects future runs, not old snapshots. Project delete cascades source/run/usage/artifact children; anti-abuse daily counters remain content-free. Backups/vendor retention are not silently promised deleted. Exported human edits are not rerun through citation/factual validation, and original task output is not rewritten; exports accurately represent the saved revision.
+
+Unresolved public/paid blockers: no verified public auth/tenant memberships, live provider cost/entitlement/privacy proof, actual Worker/D1 target, cloud alerts/log proof, restored backup rehearsal, legal/consumer/tax review, monitored support/refund process or Duitku payment lifecycle. Shared owner token must not be distributed to customers. Rotate credentials previously shared in chat and configure replacements only via secure runtime settings, never repository/browser files. Application token rotation alone does not revoke old sessions; revoke them with authorized DB tooling.
+
+Prompt injection is handled architecturally as data with no secrets/tool permissions in model context; language-level resistance is not formally proven against a live model. Source-ID validation proves retrieval traceability, not quote truth/claim coverage/entailment. Workers AI wait timeouts cannot necessarily cancel upstream work; no automatic retry/fallback and account usage must be inspected before reruns. App attempt counters cannot prevent other applications' vendor usage/paid overage. Login global throttling can be an availability bottleneck under attack; don't remove it to conceal denial. Dependency audit reported no vulnerabilities, not immunity; secret-pattern scans do not recognize every opaque credential. No Free CPU/load/all-browser/screen-reader/compliance claims are made.
+
+Duitku remains selected but no order/callback/entitlement code is activated. Merchant-live statement does not verify signatures, amount/currency/order matching, callback reachability, duplicate/out-of-order settlement, reversal/refund/expiry/reconciliation, or controlled transactions. Before implementation/activation, approve exact one-time product/price/credit/expiry/refund semantics and separate environment credentials via secrets; implement durable idempotent orders/events/grants and server-side reconciliation, never grant from browser redirects. Signature/amount/refund/payment tests and live transaction are currently NOT RUN, not treated as mock successes. No recurring auto-renewal claim.
+
+Daytona remains selected, not substituted, but no runtime adapter, approved budget, CPU/memory/network/file/timeout/cancellation/cleanup proof exists. No sandbox was created and no shared production keys were passed into execution. Public/private support pages explicitly say channel/response operations are unconfigured until SUPPORT_EMAIL and operator capacity are verified.
+
 ## Operating references
 
 - Customer-facing support and escalation: docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md.

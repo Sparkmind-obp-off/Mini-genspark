@@ -2,6 +2,29 @@
 
 This document controls the words “ready”, “launch”, “paid”, and “production”. A checklist item is complete only when linked to evidence.
 
+## Release assessment — 2026-10-10 candidate
+
+**Decision: NO-GO for public/paid production.** A tested local, single-owner, manual-evidence workflow is not a complete commercial launch. Generic BYOK deployment request is recorded, but target identity, live provider and mandatory public/payment gates remain open. No deployment/transaction was executed.
+
+| Category | Status | Evidence / remaining gate |
+|---|---|---|
+| Primary workflow / UX | PASS local manual; BLOCKED live | `npm run test:workflow`: real local login/project/provided excerpts/brief/edit/save/export/reopen/delete, no HTTP mocks; supplied evidence is not independently retrieved |
+| Auth/session and tenant isolation | PASS private controls; FAIL public scope | Cookie/Origin/expiry/logout/foreign-record regressions pass. Fixed owner identity is not public signup or tenant membership; public auth absent |
+| Persistence/migrations | PASS local; BLOCKED remote | Additive 0002/0003, original migration unchanged, D1 persistence and edit conflict/deletion tested; actual deployment DB ID/backup restore unavailable |
+| Retrieval provenance / failures | PASS fixture/manual contracts; BLOCKED live | Sources distinguish supplied versus retrieved; citations checked against current ledger, provider errors tested with mocks; no live search/model account proof |
+| Quotas/cost/abuse | PASS app bounds; NOT TESTED vendor economics | Atomic attempts and reservation consumption/release, zero-provider-unit manual flow, idempotency/concurrency tested; account balances/free eligibility/real cost unknown |
+| Payments/entitlements | BLOCKED / NOT IMPLEMENTED | Duitku selected, owner says merchant live; no approved SKU/merchant config/signature/callback/reconciliation/refund code or live proof. No live checkout/money accepted |
+| Privacy/legal/support | PASS truthful surfaces; BLOCKED operations | Actual public pages match private behavior; jurisdiction/consumer/tax review, monitored SUPPORT_EMAIL and response/refund standards unverified |
+| Observability/incident/recovery | PASS safe diagnostics; NOT TESTED production | Correlation IDs and redacted task metadata, safe errors, retention and runbook; cloud alerts/log inspection/restore not rehearsed |
+| Accessibility/responsive | PASS Chromium smoke; NOT TESTED comprehensive | Desktop/mobile no overflow/pageerror, dialog focus/Escape, labelled controls; no all-browser/screen-reader certification |
+| Performance/dependencies | PASS local packaging/audit; NOT TESTED load | SPA/Worker builds and audit 0 vulnerabilities; no Free-plan CPU/load evidence |
+| Cloudflare target/bindings | BLOCKED | BYOK auth/read-only inventory succeeds; 9 D1s / 1 Worker, no Vestren match; placeholder/legacy target intentionally not reassigned |
+| Daytona separate Build | BLOCKED / NOT IMPLEMENTED | No adapter/budget/isolation/cleanup proof; no sandbox or substitute invoked; not advertised as executable Build |
+| Customer/paid proof | NOT TESTED | No interviews, design-partner repeated use, demand, payment or unit economics evidence invented |
+| Source hygiene/manual release | PASS local | No Actions/workflow files, lockfile, secret pattern/exact local-value scan, diff check; push evidence recorded after actual git operation |
+
+Detailed observed commands/capability matrix: NOW.md. Risk reproduction and acceptance: docs/18. Cloud inventory/preflight/recovery: docs/24. Existing checkboxes below remain public-launch requirements, not automatically checked by a local pass.
+
 ## Gate 0 — product identity and promise
 - [ ] Brand and product name consistent across landing page, app, emails, and legal pages.
 - [ ] One primary customer, one primary workflow, one clear outcome.
