@@ -1,12 +1,12 @@
 # VestrenHQ Roadmap — From Current Prototype to Market
 
-**Status:** ordered execution plan, not a claim that any unchecked item is complete. One active release objective at a time. Cursor + local QA + manual Cloudflare Wrangler; no GitHub Actions or CI.
+**Status:** ordered execution plan, not a claim that any unchecked item is complete. One active release objective at a time. local QA + manual Cloudflare Wrangler; no GitHub Actions or CI.
 
 ## Phase 0 — repository and operating truth
 - VestrenHQ is the canonical product repository.
 - Keep one source of truth for product, architecture, scope, pricing, and release status.
 - Keep GitHub Actions workflows absent.
-- Use Cursor for implementation/review, GitHub for source history/push, Cloudflare Workers/Wrangler for runtime/deployment.
+- Use a repository editing environment and local terminal for implementation/review, GitHub for source history/push, and Cloudflare Workers/Wrangler for runtime/deployment. No Cursor-specific tooling is required.
 - Do not modify real Cloudflare resources until account, Worker name, D1 ID, bindings, and ownership are verified.
 - Gate: operating documents agree and placeholder resources are clearly marked.
 
@@ -83,7 +83,7 @@ Primary workflow: business/product question → real source retrieval → eviden
 - [ ] npm test completed; result recorded.
 - [ ] npm run build completed; result recorded.
 - [ ] git diff --check and secret review completed.
-- [ ] Correct branch/commit reviewed in Cursor.
+- [ ] Correct branch/commit reviewed locally.
 - [ ] Wrangler dry-run completed.
 - [ ] Cloudflare account, Worker, environment, D1 ID, R2 bindings, secrets, and quotas verified.
 - [ ] Production deployment explicitly approved.
