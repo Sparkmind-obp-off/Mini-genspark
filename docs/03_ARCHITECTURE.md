@@ -1,197 +1,82 @@
-# 03 — Architecture
+# 03 — VestrenHQ Architecture
 
-**Status:** proposed architecture; implementation is not yet complete.  
-**Primary constraint:** free-tier-first, provider-neutral, fail-closed.
+**Status:** target architecture; implementation is incomplete.  
+**Operating constraints:** Cloudflare-first, free-tier-first, provider-neutral, fail-closed, no GitHub Actions.
 
 ## 1. System boundaries
 
 ```text
-Web Workspace (React + TypeScript)
+React + TypeScript + Vite (static assets)
         |
         v
-Cloudflare Worker API (Hono / typed route handlers)
+Cloudflare Worker API (typed handlers; Hono only if useful)
         |
-        +--> Auth & Policy Gate
-        +--> Task Router -> Bounded Planner -> Execution Engine
-        +--> Model Provider Registry
-        +--> Tool Registry
-        |      +--> Search adapter (Brave free credits, optional)
-        |      +--> Public URL fetch / HTML extraction
-        |      +--> File parsing
-        |      +--> CSV/XLSX analysis
-        |      +--> Artifact exports
-        |      +--> Optional Apify Actor (quota-gated)
-        |      +--> Optional Daytona sandbox (disabled by default)
+        +--> Auth + server-side project authorization
+        +--> Control plane: quotas, approvals, audit, task lifecycle
+        +--> Agent planner -> validated tool registry -> verifier
+        +--> Workers AI / optional model adapters
+        +--> Research/search adapter + safe public URL fetch
+        +--> File parsing, deterministic analysis, artifact generation
+        +--> ExecutionProvider -> Daytona sandbox (V1 target)
         |
-        +--> Cloudflare D1 (projects, tasks, steps, sources, metadata, audit)
-        +--> Cloudflare R2 (binary artifacts only when needed and within quota)
-        +--> Cloudflare Workers AI binding (first runtime-model candidate)
+        +--> D1: users, projects, conversations, runs, sources, metadata, audit
+        +--> R2: uploaded/generated file bodies and artifacts
+        +--> Durable Objects only if live coordination needs them
 ```
 
-Genspark GenCode is used by the developer at build time through the authorized account. It is not a hidden server dependency and it is not assumed to be a public runtime API.
+## 2. Stack decisions
 
-## 2. Suggested stack
+| Layer | V1 decision | Guardrail |
+|---|---|---|
+| UI | React + TypeScript + Vite | Accessible, responsive, honest capability states |
+| API | Cloudflare Worker / Wrangler | Validate all input; never run untrusted code in Worker |
+| Auth | Existing owner-only gate during private dogfooding; OIDC/session layer before public multi-user release | A shared owner token is not production multi-user auth |
+| Authorization | Server-side project/tenant checks | Fail closed; never trust client-supplied owner/project IDs |
+| Model | Workers AI initial candidate plus adapters only when justified | Hard caps; no hidden paid fallback |
+| Search | Provider-neutral SearchProvider | Real URLs, retrieval timestamps, citation checks, quota hard stop |
+| Metadata | D1 | Migrations, scoped queries, export/deletion |
+| Artifacts | R2 when needed | Authorize every download through server-side metadata |
+| Sandbox | Daytona behind ExecutionProvider | Time/resource/output limits, task-scoped files, cleanup proof |
+| Source control | GitHub branches/commits/push | Review diff; require approval for external writes |
+| Deployment | Wrangler + Cloudflare Workers | Manual preflight and post-deploy smoke test; no GitHub Actions |
 
-| Layer | Initial choice | Why | Free-first limit |
-|---|---|---|---|
-| Web UI | React + TypeScript + Vite | Familiar, buildable static assets, componentized UI | Static assets don't use a per-call model API; bundle size still matters |
-| Styling | Tailwind CSS or simple CSS tokens | Responsive design system and quick iteration | Open-source; keep bundle lean |
-| Components | Accessible primitives / Radix where needed | Accessible interactions and controlled menus/dialogs | No hosted UI fee |
-| Worker API | Cloudflare Workers + Hono or native Request handlers | Low-ops API and bindings | Workers Free limits apply |
-| AI runtime | Typed adapter around Workers AI; optional adapters for eligible providers | Avoid vendor lock-in | 10,000 Neurons/day free; specific models may require billing |
-| Research | Brave Search API adapter + safe public URL fetcher | Real search results with URLs and snippets | $5/month advertised credit; stop on quota exhaustion |
-| Metadata | D1 | Projects and task state | 5M rows read/day, 100K rows written/day, 5GB total on Workers Free |
-| Artifacts | R2 | Large outputs not suitable for D1 | 10GB-month and operation quotas on Standard free tier |
-| Documents | Markdown + HTML first; TipTap optional editor | Editable output and browser printing | Local code, not a document-generation API |
-| Spreadsheet | PapaParse (CSV), ExcelJS (XLSX), TanStack Table; deterministic calculation module | Reliable data import/export and analysis | OSS libraries; validate workbook fidelity |
-| Slides | HTML slide canvas + PptxGenJS export | Original theme engine and editable deck generation | OSS; layout fidelity requires tests |
-| Charts | Recharts or SVG renderer | Charts based on computed data | OSS |
-| Code | Safe diff/patch workflow | Code writing, review and tests | No arbitrary cloud execution initially |
-| Sandbox | Daytona adapter, disabled unless free balance proven and approved | Isolated execution, not host process | $200 free compute is finite promotional/trial usage |
-| Deployment | Cloudflare Pages / Workers | Fits static + serverless architecture | Recheck current plan and API limits |
-| Owner access | Private owner-only preview first | Avoid premature public multi-tenant attack surface | Don't expose a production workspace before auth is complete |
+Do not add every optional library or provider at once. Keep vendor SDKs behind adapters. Durable Objects are not mandatory unless a real coordination requirement is demonstrated.
 
-Do not add every optional library at once. Confirm compatibility, current license and maintenance status before installation.
+## 3. Canonical task lifecycle
 
-## 3. Core modules
-
-### 3.1 Model provider contract
-
-The domain must not depend on a specific vendor's response schema. Use a contract equivalent to:
-
-```ts
-type ModelTask =
-  | "chat"
-  | "classify"
-  | "extract"
-  | "summarize"
-  | "research_synthesis"
-  | "document_draft"
-  | "spreadsheet_assist"
-  | "code_assist";
-
-type ProviderState =
-  | "DOCUMENTED"
-  | "CONFIGURED"
-  | "LIVE_VERIFIED"
-  | "QUOTA_EXHAUSTED"
-  | "DISABLED";
-
-interface ModelProvider {
-  id: string;
-  label: string;
-  supportedTasks: ModelTask[];
-  state: ProviderState;
-  execute(input: {
-    system: string;
-    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
-    maxOutputTokens?: number;
-    timeoutMs: number;
-  }): Promise<{
-    text: string;
-    model?: string;
-    usage?: { inputTokens?: number; outputTokens?: number; knownCostUsd?: number };
-    rawMetadata?: Record<string, string | number | boolean>;
-  }>;
-}
-```
-
-This snippet is a design contract, not implemented code yet. Implement runtime validation and a redaction layer; do not persist provider raw metadata if it can contain user data or secrets.
-
-### 3.2 Task and workflow lifecycle
-
-Canonical states:
 `created → validated → planned → awaiting_approval → queued → running → verifying → succeeded | failed | cancelled | quota_blocked`
 
-Rules:
-- Each task has a unique ID, actor/project scope, task type, risk level, created time and configured budget.
-- Each step has status, start/end time, tool/provider ID, retry count, output artifact refs and a structured error code.
-- A terminal success needs the verifier to pass; model text claiming "done" is not sufficient.
-- Max steps, wall-clock deadline, provider calls, artifact sizes and retries are bounded.
-- A retry only occurs on a safe error and within the explicit retry budget.
-- External writes, emails, phone calls, purchases, production deployments and arbitrary code execution require explicit approval.
+A task is not successful because the model says “done.” Verification must use real evidence appropriate to the task: valid source links, deterministic calculation checks, file reopening, sandbox exit status, or explicit user acceptance.
 
-### 3.3 Research pipeline
+## 4. Daytona execution boundary
 
-1. Classify whether the request needs fresh information.
-2. Query a configured search provider within its free quota.
-3. Normalize results (URL, title, snippet, provider, retrieval timestamp).
-4. Fetch permitted public pages with timeout/size caps; handle robots, terms and paywalls appropriately.
-5. Extract claims and map each material claim to sources.
-6. Identify conflicting reports, publication date versus event date, and what sources don't establish.
-7. Generate a synthesis that distinguishes fact, party allegation, inference and unknown.
-8. Run citation completeness checks; avoid invented URLs and stale dates.
-9. Save the source ledger with the artifact.
+Daytona is the selected V1 sandbox. The Worker should authorize a task, create a bounded sandbox via a server-side adapter, transfer only scoped files, execute approved commands, collect bounded logs/artifacts, and attempt cleanup on success, failure, and timeout. Enforce execution deadlines, output limits, safe paths, concurrency limits, and network restrictions. Do not pass broad production credentials into the sandbox.
 
-If live search is not available, the UI must disclose the limitation and not falsely claim fresh web research.
+No E2B fallback and no mock-as-production-success. The current repository tree does not show the Daytona adapter under src/. If it exists in another implementation, port it into this canonical repository and test its contract before enabling Build execution.
 
-### 3.4 Artifact pipeline
+## 5. Trust and cost
 
-MVP supported artifact formats:
-- Markdown (`.md`) and HTML for documents/reports.
-- CSV for data import/export.
-- JSON for workflow and intermediate structured results.
-- HTML preview for slide decks.
+- Secrets are server-side Cloudflare secrets, never frontend variables or committed files.
+- Missing identity, authorization, provider configuration, quota, or tool permission fails closed.
+- Retrieved pages, uploaded files, repository content, and model output are untrusted data.
+- External writes, publishing, deployments, sending, purchasing, and spending require explicit approval.
+- Bound request size, context, output, time, concurrency, retries, and daily usage.
+- Provider status must distinguish disabled, configured, live-verified, quota-exhausted, and error.
+- Do not pool free quotas into a paid multi-user service unless provider terms clearly allow it.
+- Use D1 for metadata and R2 for binary bodies; authorize every read and delete.
 
-After QA, add:
-- XLSX via tested generation/parsing.
-- PPTX using PptxGenJS and layout checks.
-- DOCX and PDF export. Initially PDF may use browser print-to-PDF; do not claim deterministic server PDF output unless tested.
+## 6. Commercial readiness is also architecture
 
-Artifacts should contain metadata: name, project, type, created time, file size, source/task relation, MIME type, version and retention status. Enforce an owner-only download check.
+Before public multi-user release, add verified login/session revocation, tenant/project isolation, durable conversation and project storage, user export/deletion, usage accounting, support/feedback, privacy/terms, and a manual incident/rollback process. Product-market fit cannot be solved by infrastructure alone: instrument task completion, corrections, repeat use, and cost per useful work product.
 
-### 3.5 Memory and files
+## 7. Release process without GitHub CI
 
-Separate:
-- **Project memory:** explicit notes/preferences the user can read, edit and delete.
-- **Task history:** request, plan, events, outputs and errors with defined retention.
-- **Artifacts:** generated files and uploaded materials.
-- **Provider configuration:** provider IDs and non-secret settings.
-- **Secrets:** Cloudflare secret bindings only, never D1/plaintext/browser/local committed files.
+1. Work on a feature branch and push to GitHub.
+2. Run npm run typecheck, npm test, and npm run build locally.
+3. Inspect the diff and confirm no secrets or unrelated changes.
+4. Verify Cloudflare account, Worker target, D1 IDs, bindings, secrets, and quota ceilings.
+5. Deploy explicitly with Wrangler only after preflight.
+6. Run a small deployed smoke test and inspect Cloudflare logs.
+7. Record commit, deployment URL, smoke-test result, provider state, known gaps, and rollback steps.
 
-Never treat retrieved webpages or uploaded documents as high-priority instructions. They are untrusted content and may contain prompt injection.
-
-## 4. Initial database design
-
-Suggested D1 tables (implement with migrations and explicit indexes):
-- `users` — owner identity/auth record when authentication is introduced.
-- `projects` — workspace projects and user-visible metadata.
-- `conversations`, `messages` — chat history with bounded content retention.
-- `tasks` — canonical request, classification, lifecycle, risk and budget.
-- `task_steps` — plan steps, tool/provider state, times, status and errors.
-- `sources` — URL/title/retrieval time/snippet/claim references for research.
-- `artifacts` — file metadata, storage key, checksum, size and version.
-- `workflows` — user-authored reusable workflow definitions and versions.
-- `provider_status` — enabled state, last smoke test, quota notes (no secrets).
-- `audit_events` — redacted authorization, execution and result verification events.
-
-Store provider secrets in environment bindings, never in these tables.
-
-## 5. Security controls
-
-- CORS allowlist; origin and request validation.
-- Owner authentication for any remotely accessible owner data.
-- Per-route authorization and project-level ownership.
-- Strict JSON schema validation for all tool inputs.
-- No arbitrary shell commands in the Worker.
-- No tool execution based solely on untrusted fetched text.
-- URL protections against private IPs, internal metadata endpoints, localhost, DNS rebinding and redirect-to-private targets.
-- File MIME/extension checks, size caps, decompression protections and no executable uploads.
-- Redact API keys, cookies, authorization headers and secret-like values from logs.
-- Apply request/step/time/output limits before calling providers.
-- Model responses are untrusted inputs; never eval or execute them directly.
-- Explicit user approval for side effects and any non-zero/unknown cost.
-- Data deletion and storage retention behavior documented before inviting external users.
-- Publish privacy notice and terms before a public beta.
-
-## 6. Deployment gates
-
-Local V0 may run without external accounts using mocks and sample tasks. Do not deploy publicly until:
-1. One real provider has completed a harmless smoke test.
-2. The selected model's actual free quota is confirmed.
-3. No paid fallback or auto-top-up path exists.
-4. Authentication and artifact access control are tested.
-5. The research feature passes citation and date tests.
-6. Build, typecheck and regression tests pass.
-7. A human inspects logs to confirm secrets are not leaked.
-8. The owner explicitly approves deployment.
+The Cloudflare deployment is not a replacement for tests. GitHub Actions are intentionally excluded; release verification is manual and recorded.
