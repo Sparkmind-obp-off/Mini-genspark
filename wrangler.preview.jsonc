@@ -5,6 +5,7 @@
   "main": "src/worker.ts",
   "compatibility_date": "2026-10-10",
   "workers_dev": true,
+  "version_metadata": { "binding": "WORKER_VERSION" },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
@@ -14,7 +15,7 @@
   "d1_databases": [{
     "binding": "DB",
     "database_name": "vestrenhq-private-preview",
-    "database_id": "",
+    "database_id": "86787a64-0479-4ee6-96ca-5e9387a9b781",
     "migrations_dir": "migrations"
   }],
   "vars": {

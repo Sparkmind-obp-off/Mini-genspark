@@ -12,7 +12,7 @@ export interface D1Statement {
 export interface D1Database { prepare(sql: string): D1Statement; batch(statements: D1Statement[]): Promise<unknown[]>; }
 export interface Env extends ProviderEnv {
   DB?: D1Database; ASSETS?: { fetch(request: Request): Promise<Response> };
-  OWNER_ACCESS_TOKEN?: string; DAILY_REQUEST_LIMIT?: string; SEARCH_MONTHLY_LIMIT?: string; APP_ORIGIN?: string; SUPPORT_EMAIL?: string; DEPLOYMENT_STAGE?: string;
+  OWNER_ACCESS_TOKEN?: string; DAILY_REQUEST_LIMIT?: string; SEARCH_MONTHLY_LIMIT?: string; APP_ORIGIN?: string; SUPPORT_EMAIL?: string; DEPLOYMENT_STAGE?: string; WORKER_VERSION?: { id: string; tag?: string; timestamp?: string };
 }
 type Task = { id: string; conversation_id: string; mode: string; prompt: string; result: string; status: string; provider: string; model: string; error_code: string; sources_json: string; analysis_json: string | null; created_at: string; updated_at: string; input_hash: string };
 const ownerId = "workspace-owner";
@@ -147,7 +147,7 @@ async function route(request: Request, env: Env, context: AccessContext): Promis
   const policy = request.method === "GET" ? policyPage(url.pathname, env.SUPPORT_EMAIL) : null;
   if (policy) return policy;
   if (!path.startsWith("/api/")) return env.ASSETS ? env.ASSETS.fetch(request) : new Response("Build assets with npm run build.", { status: 503 });
-  if (path === "/api/health" && request.method === "GET") return json({ app: "vestrenhq", status: "owner-only", publicLaunch: false });
+  if (path === "/api/health" && request.method === "GET") return json({ app: "vestrenhq", status: "owner-only", publicLaunch: false, version: env.WORKER_VERSION ?? null });
   if (!["GET", "POST", "PATCH", "DELETE"].includes(request.method)) throw new AppError("METHOD_NOT_ALLOWED", 405);
   if (request.method !== "GET") guardOrigin(request, env);
   const db = database(env);

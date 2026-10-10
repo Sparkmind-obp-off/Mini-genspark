@@ -36,6 +36,15 @@ beforeEach(async () => {
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 afterAll(async () => { await mf?.dispose(); });
 describe("Worker API with real local D1/SQLite; inference MOCKED", () => {
+  it('reports only supplied runtime version metadata without fabricating cloud verification', async () => {
+    const local = await (await request('/api/health', 'GET', undefined, false)).json() as { version: unknown };
+    expect(local.version).toBeNull();
+    env.WORKER_VERSION = { id: 'fixture-cloud-version', tag: 'fixture-commit', timestamp: '2026-10-10T00:00:00Z' };
+    expect(await (await request('/api/health', 'GET', undefined, false)).json()).toMatchObject({ version: env.WORKER_VERSION });
+    const view = await (await request('/api/security')).json() as SecuritySnapshot;
+    expect(view.configuration.deployment.status).toBe('VERIFIED');
+    expect(view.configuration.alerts.status).toBe('UNAVAILABLE');
+  });
   it("protects every private route, rejects cross-origin, and revokes sessions", async () => {
     for (const path of ["/api/providers", "/api/conversations", "/api/tasks/" + crypto.randomUUID(), "/api/artifacts/" + crypto.randomUUID()]) expect((await request(path, "GET", undefined, false)).status).toBe(401);
     const csrf = await request("/api/tasks", "POST", { mode: "chat", prompt: "x" }, true, { origin: "https://attacker.example" }); expect(csrf.status).toBe(403);
