@@ -15,7 +15,7 @@ Do not attempt to build a broad all-in-one workspace in one pass. Prioritize rea
 - **Source control:** GitHub branches, commits, diffs, pushes, and pull requests.
 - **Release method:** local quality checks plus a manual Wrangler preflight, deployment, smoke test, and rollback record.
 - **GitHub Actions:** prohibited for CI and deployment. Do not add workflow files or rely on GitHub checks as release authorization.
-- **No Cursor dependency.** Do not introduce editor-specific assumptions or instructions.
+- Do not introduce editor-specific assumptions or dependencies.
 - **Sandbox:** Daytona is the chosen Build sandbox direction. Do not substitute another provider or label a mock adapter as live without explicit approval.
 - **Payments:** Duitku is the planned gateway. Do not enable checkout or accept customer money until server-side verification, callback/signature checks, idempotency, entitlements, refunds/reversals, and reconciliation are implemented and tested.
 - **Secrets:** server-side only. Never commit, expose to browser bundles, log, or paste credentials into documentation.
