@@ -1,133 +1,73 @@
-# Mini Genspark
+# Vestren — AI Workspace
 
-**An original, free-tier-first AI workspace inspired by the all-in-one AI workspace category.**
+**Vestren is an original, free-tier-first AI workspace designed to turn a prompt into a researched answer, a useful artifact, an analysis, or a bounded build task.**
 
-Mini Genspark aims to bring research, chat, document creation, spreadsheet analysis, presentations, coding assistance, tools, and reusable workflows into one workspace. It will use free/open-source software and genuinely free quotas first, with explicit feature gates when a capability requires paid compute or an unavailable provider API.
+This branch begins the rebrand of the Mini Genspark workspace baseline into Vestren. It also adopts selected architectural principles from the existing [Vestren Workbench repository](https://github.com/Sparkmind-obp-off/vestren): explicit identity and authorization boundaries, provider-neutral interfaces, project-scoped execution, auditable workflows, and isolated execution.
 
-> **Important status:** This repository is being initialized with research and implementation specifications. These documents are not evidence that the application, provider connections, or Genspark feature parity have already been implemented.
+## Product direction
 
-## Principles
+Vestren should feel like one workspace, not a collection of disconnected chatbots:
 
-1. **Free-tier first:** no paid subscription, automatic top-up, paid API call, or production billing without explicit approval.
-2. **Provider-neutral:** every model/tool is behind an adapter; never rely on undocumented private endpoints or browser-session extraction.
-3. **Evidence before claims:** a provider is labelled *documented*, *configured*, or *live-verified* separately. A listing in Genspark is not proof of a public API.
-4. **Original product:** benchmark general interaction patterns, not Genspark code, trademarks, logos, proprietary assets, or distinctive pixel-exact layouts.
-5. **Scripts are visible:** commands, environment variables, costs, side effects, and test outcomes must be documented.
-6. **Safe by default:** budget/rate limits, user approval for external side effects, secret redaction, source citations, and fail-closed tool permissions.
-7. **No fake parity:** image/video/audio/music, phone calling, meeting bots, browser automation, code execution, and third-party connectors remain unavailable until safely implemented and tested.
+- **Chat** — reasoning and iterative work.
+- **Research** — web research with retrieved sources, dates, citations, and uncertainty clearly shown.
+- **Create** — editable documents and other deliverables.
+- **Analyze** — structured data inspection, calculations, tables, and charts.
+- **Build** — repository-aware planning and code changes, with tests and human review.
+- **Agent runs** — multi-step tasks with a visible plan, tool permissions, progress, artifacts, and verification.
+- **Projects and memory** — user-controlled context and durable work history, added only with explicit privacy and access controls.
 
-## Repository status
+The product may learn from general AI-workspace interaction patterns, including Genspark's unified workflow approach. It must not copy proprietary code, logos, protected assets, or distinctive pixel-exact UI. Vestren's implementation, visual identity, prompts, and product decisions remain original.
 
-- Repository: https://github.com/Sparkmind-obp-off/Mini-genspark
-- Initial scope: self-use personal AI workspace, then a narrowly monetizable startup workflow.
-- Initial app scaffold: React/Vite workspace UI, Cloudflare Worker endpoint, Workers AI binding, D1 quota/audit schema, owner token gate, and explicitly labelled local demo mode.
-- **Build/test/live-provider status: not yet verified in this session.** The UI code and API contract are pushed; do not claim the app compiles or live inference works until scripts and a bounded smoke test pass.
-- Production deployment: not authorized by this plan.
-- Runtime provider credentials: none included.
-- Model inference is disabled until the owner confirms the Cloudflare account is on Workers Free; no paid fallback is implemented.
+## Architecture principles adopted from the existing Vestren Workbench
 
-## Start here
+1. **Identity is not authorization.** A verified login is not enough; server-side project membership and permissions must be checked for each protected resource.
+2. **Control plane is separate from execution plane.** Do not run untrusted generated code inside a normal Worker request.
+3. **Provider-neutral interfaces.** Model, search, tools, storage, and sandbox providers are adapters behind stable internal contracts.
+4. **Visible, bounded agent execution.** Plans, allowed tools, limits, status, errors, artifacts, and verification outcomes are inspectable.
+5. **Project-scoped persistence.** Conversations, executions, and artifacts must be isolated by tenant/project where multi-user support is enabled.
+6. **Fail closed.** No configured provider, missing authorization, exhausted quota, or failed verification must not silently fall back to paid or unsafe execution.
+7. **Human approval for consequential actions.** External writes, publishing, deployments, sending messages, and spending money require explicit approval.
+8. **Evidence over claims.** Distinguish local/mock tests, configured providers, and live-verified integrations.
 
-1. [Research summary and product benchmark](docs/01_RESEARCH_AND_FEATURE_PARITY.md)
-2. [Provider and free-tier registry](docs/02_PROVIDER_FREE_TIER_REGISTRY.md)
-3. [Architecture](docs/03_ARCHITECTURE.md)
-4. [Roadmap and acceptance criteria](docs/04_ROADMAP.md)
-5. [Scripts, provider setup and safety](docs/05_SCRIPTS_AND_OPERATIONS.md)
-6. [Implementation master prompt for GenCode](docs/06_GENCODE_IMPLEMENTATION_PROMPT.md)
-7. [Research-quality test case: Indonesia's 6 October 2026 MK decision](docs/07_RESEARCH_ACCEPTANCE_CASE_MK.md)
-8. [Dogfood and monetization strategy](docs/08_DOGFOOD_AND_MONETIZATION.md)
-9. [Self-use and startup monetization plan](docs/09_SELF_USE_AND_MONETIZATION.md)
-10. [Local setup and free-tier guard](docs/10_LOCAL_SETUP.md)
+## Current branch scope
 
-## Target user experience
+This branch applies the initial product name in the existing Mini Genspark UI and worker prompt, and records the product/architecture blueprint. It is **not** a completed merge of both repositories, and it is not a production launch.
 
-A single prompt workspace routes work to bounded workflows:
-- **Research:** live search, page retrieval, source ledger, claim/evidence mapping, neutral synthesis.
-- **Chat:** model selection, Auto/Best Fit, saved conversations, optional tools.
-- **Create:** editable Markdown/HTML docs, slide decks, tables and downloadable artifacts.
-- **Analyze:** CSV/XLSX import, validation, formulas/calculations, tables/charts and exports.
-- **Build:** repository-aware code assistance and safe diffs; arbitrary untrusted code execution is a separately gated capability.
-- **Workflows:** visible plan, step status, bounded retries, artifacts, audit and reusable user-authored instructions.
-- **Project memory:** user-visible, editable and deletable; no hidden or irreversible memory.
+The current Mini Genspark codebase is a smaller React/Vite + Cloudflare Worker/D1 workspace. The separate Vestren Workbench repository has the more developed Auth0/OIDC, tenant/project authorization, R2 artifact, and E2B execution-provider boundaries. Those capabilities must be integrated deliberately rather than copied over blindly.
 
-## Initial technical direction
+## Target architecture
 
-- Frontend: React + TypeScript + Vite, responsive original UI.
-- API/control plane: Cloudflare Workers.
-- Durable metadata: Cloudflare D1.
-- Artifacts: Cloudflare R2 within free quotas, with local/download fallback.
-- Runtime inference: provider adapters; first live provider selected only after a zero-cost end-to-end smoke test and privacy review.
-- Research: Brave Search API's currently advertised monthly credits, plus direct public-page retrieval where permitted; provider quota is monitored and must fail clearly at zero.
-- Optional code sandbox: Daytona's advertised free compute credit is finite promotional/trial usage, not a permanent free runtime. Keep off by default and limit to explicitly approved tasks.
-- Testing: unit tests, provider mocks, API tests and real smoke tests separately labelled.
+- **Experience layer:** React + TypeScript workspace; Chat, Research, Create, Analyze, Build, Projects, Runs, Artifacts.
+- **Control plane:** Cloudflare Pages/Workers API for identity, authorization, quotas, planning, approvals, and audit.
+- **Intelligence plane:** provider-neutral LLM and research adapters; route by capability, privacy, availability, and cost.
+- **Execution plane:** ExecutionProvider interface; E2B as the existing Vestren adapter, with a deterministic mock for tests. Other sandbox providers remain optional adapters, not hard-coded dependencies.
+- **Data plane:** D1 for relational metadata and authorization; R2 for artifact bodies; Durable Objects only when live session coordination needs them.
+- **Tool plane:** typed internal tools and, where justified, MCP adapters with strict schemas, allowlists, timeouts, and audit events.
+- **Quality plane:** unit/integration/browser tests, provider contract tests, explicit live smoke tests, artifact verification, and security checks.
 
-This is a proposed baseline. Actual free quotas, model availability, terms and billing status must be rechecked before enabling each integration.
+## Free-tier-first policy
 
-## What “free-tier first” means
+- No automatic paid fallback, auto top-up, or production deployment without explicit approval.
+- A free quota is finite and may change. Configure hard limits and stop safely at quota exhaustion.
+- Keep provider credentials server-side; never log or expose secrets.
+- Mark every integration as mock, configured, or live-verified.
+- Do not claim a capability is live until an actual provider smoke test passes.
 
-A free tier is a quota, not unlimited service. The application must stop or downgrade safely before exceeding quotas. Provider-specific privacy terms matter too: a provider's free tier may use prompts for service improvement, so confidential user content must not be sent there by default.
+## Migration guardrails
 
-The product can aim for broad *workflow coverage* similar to an all-in-one AI workspace, but it cannot honestly promise Genspark-equivalent video/audio/image generation, meeting bots, real-time voice, or autonomous browser control entirely free until a sustainable, compliant implementation is verified for each capability.
+- Keep this work on a feature branch until review.
+- Do not rename production Cloudflare resources, D1 database bindings, secrets, or deployment projects as part of a UI-only rebrand.
+- Preserve existing tests and migrations; add tests before changing authentication, persistence, or execution.
+- Treat the existing Vestren Workbench repo as a source of architecture patterns, not as a reason to maintain two competing Vestren products.
+- The eventual canonical repository name can be chosen separately (for example, vestren or vestren-hq). Repository renaming and deployment/domain changes are not performed by this branch.
 
-## Official research sources
+## Status and verification
 
-- Genspark Help Center: https://www.genspark.ai/helpcenter
-- Genspark AI Chat: https://www.genspark.ai/helpcenter/ai-chat
-- Genspark Super Agent: https://www.genspark.ai/helpcenter
-- GenCode: https://www.genspark.ai/helpcenter/gencode
-- Connectors & Integrations: https://www.genspark.ai/helpcenter/connectors-and-integrations
-- Genspark Credits Guide: https://www.genspark.ai/helpcenter/credits-guide
-- Cloudflare Workers limits: https://developers.cloudflare.com/workers/platform/limits/
-- Cloudflare Workers AI pricing: https://developers.cloudflare.com/workers-ai/platform/pricing/
-- Cloudflare D1 pricing: https://developers.cloudflare.com/d1/platform/pricing/
-- Cloudflare R2 pricing: https://developers.cloudflare.com/r2/pricing/
-- Gemini API pricing: https://ai.google.dev/gemini-api/docs/pricing
-- Groq rate limits: https://console.groq.com/docs/rate-limits
-- OpenRouter free models: https://openrouter.ai/collections/free-models
-- Brave Search API: https://brave.com/search/api/
-- Apify pricing: https://apify.com/pricing
-- Daytona pricing: https://www.daytona.io/pricing
-- Daytona limits: https://www.daytona.io/docs/limits/
+The remote main branch is the pre-rebrand baseline. This feature branch is a proposal for the initial Vestren workspace rebrand. No production deployment, live model call, live search, Auth0 login, or real sandbox execution is implied by the presence of these files.
 
-See the research documents for current details, caveats, and what still requires a live account check.
+## References
 
-
-## First provider inventory (developer machine)
-
-Install and sign in to the official Genspark GenCode CLI if you want to see which models are actually available to your account:
-
-    npm install -g @genspark/gencode
-    gencode login
-    bash scripts/gencode-provider-inventory.sh
-
-This is a read-only model inventory. It does not submit a generation task and does not prove that the same model catalog is available as an application-facing REST API. GenCode uses Genspark credits, so check your balance before running actual tasks.
-
-## Current repository files
-
-- Documentation set: docs/01 through docs/07.
-- Implemented script: scripts/gencode-provider-inventory.sh.
-- App code, package.json, runtime provider adapters, production authentication and deployment are not yet claimed as implemented.
-
-
-## Initial application scaffold
-
-The repo now includes a basic responsive workspace and owner-preview API scaffold:
-- Frontend navigation for Chat, Research, Create, Analyze and Build.
-- Visible local demo mode when a provider is not configured; demo replies explicitly disclose they are not AI inference.
-- Server-side Workers AI call using the configured model.
-- D1 daily app request reservation (default cap 20 requests/day) and minimal task event metadata.
-- Application-specific owner token gate and explicit free-plan confirmation gate.
-- No live search, file upload, durable chat history UI, arbitrary code execution, public signup, or production deployment yet.
-
-### Run local checks
-
-    npm install
-    npm run qa
-    npm run typecheck
-    npm run build
-
-Static QA is not a substitute for the build or a live provider test. The owner-only Worker setup is documented in [docs/10_LOCAL_SETUP.md](docs/10_LOCAL_SETUP.md).
-
-## Monetization direction
-
-Use the product privately first, then sell one verified workflow/output as a human-reviewed paid pilot before offering a broad AI workspace subscription. The plan with test-price hypotheses and pass/fail gates is in [docs/09_SELF_USE_AND_MONETIZATION.md](docs/09_SELF_USE_AND_MONETIZATION.md). These are hypotheses; no external customer demand, paid conversion, or product-market fit has been established.
+- [Existing Vestren Workbench](https://github.com/Sparkmind-obp-off/vestren)
+- [Mini Genspark baseline](https://github.com/Sparkmind-obp-off/Mini-genspark)
+- [Genspark AI Workspace 6.0 overview](https://www.genspark.ai/blog/genspark-ai-workspace-6)
+- [Genspark Super Agent](https://www.genspark.ai/helpcenter/super-agent)
