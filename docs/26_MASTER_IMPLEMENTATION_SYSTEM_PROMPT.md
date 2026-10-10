@@ -12,14 +12,14 @@ Do not attempt to build a broad all-in-one workspace in one pass. Prioritize rea
 ## 2. Binding operating constraints
 - **Runtime and deployment:** Cloudflare Workers and Wrangler.
 - **Data:** use Cloudflare D1/R2/Workers AI only after checking current account entitlements, limits, configuration, and data needs.
-- **Source control:** GitHub branches, commits, diffs, pushes, and pull requests.
-- **Release method:** local quality checks plus a manual Wrangler preflight, deployment, smoke test, and rollback record.
+- **Source control:** commit and push directly to GitHub `main`, as the owner explicitly requested. Do not create branches or pull requests for routine implementation; preserve history and never force-push.
+- **Release method:** local quality checks plus manual Wrangler preflight, deployment, smoke test, and rollback record. The owner explicitly authorized an isolated private preview on dedicated `vestrenhq-private-preview` Worker + D1 resources in the BYOK account. Complete that deployment when authenticated Cloudflare access is available; do not claim it succeeded until verified.
 - **GitHub Actions:** prohibited for CI and deployment. Do not add workflow files or rely on GitHub checks as release authorization.
 - Do not introduce editor-specific assumptions or dependencies.
 - **Sandbox:** Daytona is the chosen Build sandbox direction. Do not substitute another provider or label a mock adapter as live without explicit approval.
 - **Payments:** Duitku is the planned gateway. Do not enable checkout or accept customer money until server-side verification, callback/signature checks, idempotency, entitlements, refunds/reversals, and reconciliation are implemented and tested.
 - **Secrets:** server-side only. Never commit, expose to browser bundles, log, or paste credentials into documentation.
-- **Production safety:** do not deploy, run migrations against production, create/alter live resources, or initiate live payments without explicit release-owner approval and verified target resources.
+- **Release safety:** the explicit current authorization covers only creating and deploying a dedicated private-preview Worker + D1 with no DNS, paid provider activation, or payments. Do not deploy public/paid production, alter unrelated resources, initiate live payments, or change DNS without separate approval and verified target resources.
 - **Resource safety:** Wrangler config currently has a placeholder D1 ID and legacy naming. Treat this as a hard blocker until the correct Cloudflare account/resources are confirmed. Never guess a resource ID.
 
 ## 3. Canonical documents to read first
@@ -36,6 +36,7 @@ Read and reconcile:
 - docs/19_FREE_FIRST_BOOTSTRAP_AND_MONETIZATION.md
 - docs/20_ICP_AND_CUSTOMER_DISCOVERY.md through docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md
 - docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md
+- docs/27_CURRENT_GAP_ASSESSMENT_AND_DIRECT_MAIN_RELEASE.md
 
 If documents conflict, stop and report the exact conflict, recommend the smallest correction, and do not silently invent a new product or operational policy.
 
@@ -48,7 +49,7 @@ If documents conflict, stop and report the exact conflict, recommend the smalles
 6. After each coherent slice, run available local checks and inspect the diff. Record unavailable checks and why.
 7. Update documentation and NOW.md with actual status, commit SHA, test evidence, remaining risks, and next action.
 8. Stop at any decision requiring credentials, paid service, production resource changes, destructive migration, or product-policy ambiguity. Ask for the minimum approval needed.
-9. Do not create or merge pull requests, change branch protections, or deploy production unless specifically authorized.
+9. Push routine implementation directly to `main`; do not create pull requests or branches. Do not change branch protections. Complete the owner-authorized private-preview deployment after real resource IDs, secrets, QA, and migration preflight are verified; public/paid production remains separately gated.
 
 ## 5. Phase order and gates
 
@@ -152,3 +153,13 @@ Never report “ready to sell”, “production ready”, “integrated”, or �
 
 ## 9. First task to execute
 Start with Phase A only: inspect repository state and actual source files; verify the current branch and no-workflows invariant; inspect Wrangler configuration and package scripts; compare implementation to docs/18 gap register. Produce a short evidence-based baseline, then implement only the highest-priority safe vertical slice. Do not stop after generating more planning documents, and do not deploy production.
+
+
+## Current execution directive — 2026-10-10
+
+1. Continue on `main`; direct commit/push only, no PR workflow, no GitHub Actions.
+2. Finish the private-session stale-response fix and project-cap reservation guard. Regression tests have been added; run the full suite before claiming these fixes are verified.
+3. The target names are `vestrenhq-private-preview` for both Worker and D1. The D1 ID in `wrangler.jsonc` remains a placeholder. Use the actual ID returned by Cloudflare; never guess it.
+4. Owner authorization for the isolated private preview is granted. When Cloudflare BYOK credentials are accessible, create the dedicated D1/Worker as needed, set only the application owner secret, apply migrations, deploy manually, and run live smoke tests. Do not enable paid providers, payments, DNS/custom domains, or public signup.
+5. If credentials/tools are unavailable, do not simulate the deployment. Finish source review and documentation, state the exact blocker, and leave deployment status BLOCKED.
+6. Read `docs/27_CURRENT_GAP_ASSESSMENT_AND_DIRECT_MAIN_RELEASE.md` for current findings, commands, and release gates.
