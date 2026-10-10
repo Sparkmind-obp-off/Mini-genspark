@@ -72,3 +72,13 @@ Never promise 24/7 support or uptime guarantees unless staffed and measured.
 - Keep provider payloads and logs minimal.
 - Do not use customer work for testimonials or training without appropriate permission and disclosure.
 - Provide deletion/export mechanisms and test them from the user's perspective.
+
+
+
+## Operating references
+
+- Customer-facing support and escalation: docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md.
+- Manual release, secrets, smoke tests and rollback: docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md.
+- Public claim substantiation: docs/21_POSITIONING_AND_LANDING_PAGE.md.
+
+The presence of a written policy is not proof of implementation. Verify the deployed behavior, providers, contact details, and retention controls before publishing policies or inviting customers.

@@ -27,6 +27,13 @@ Read:
 - [Trust, Privacy, and Operations](docs/17_TRUST_PRIVACY_AND_OPERATIONS.md)
 - [Commercial Gap Register](docs/18_COMMERCIAL_GAP_REGISTER.md)
 - [Free-First Bootstrap and Monetization](docs/19_FREE_FIRST_BOOTSTRAP_AND_MONETIZATION.md)
+- [ICP and Customer Discovery](docs/20_ICP_AND_CUSTOMER_DISCOVERY.md)
+- [Positioning and Landing Page](docs/21_POSITIONING_AND_LANDING_PAGE.md)
+- [Go-to-Market Execution Playbook](docs/22_GO_TO_MARKET_EXECUTION_PLAYBOOK.md)
+- [Customer Support and Success Runbook](docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md)
+- [Cloudflare Workers Manual Release Runbook](docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md)
+- [Product Metrics and Experiment Log](docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md)
+- [Master Implementation System Prompt](docs/26_MASTER_IMPLEMENTATION_SYSTEM_PROMPT.md)
 - [Product Constitution](docs/00_VESTREN_PRODUCT_CONSTITUTION.md)
 - [Architecture](docs/03_ARCHITECTURE.md)
 - [Roadmap and acceptance criteria](docs/04_ROADMAP.md)
@@ -36,6 +43,7 @@ Read:
 ## Operating decisions
 
 - **Canonical repository:** VestrenHQ.
+- **Development:** repository edits, local QA, and diff review in the project workspace.
 - **Source control:** GitHub; branch, commit, inspect diff, push.
 - **No GitHub Actions / GitHub CI.** Use local checks and a manual release checklist.
 - **Runtime and deployment:** Cloudflare Workers + Wrangler.
@@ -60,7 +68,7 @@ From a local checkout with Node/npm installed:
     npm test
     npm run build
 
-These commands are not reported as passing unless actually run. GitHub Actions are intentionally not used. For an approved deployment, use Wrangler explicitly after reviewing the target account, Worker name, bindings, and secrets.
+These commands are not reported as passing unless actually run. GitHub Actions are intentionally not used. For an approved deployment, use a terminal and Wrangler explicitly after reviewing the target account, Worker name, bindings, and secrets. Follow docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md.
 
 ## Product rule
 
