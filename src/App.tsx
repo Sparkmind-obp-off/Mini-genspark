@@ -77,10 +77,10 @@ export default function App() {
   function allowDiscard() { return !selectedArtifact || artifactDraft === (selectedArtifact.content ?? "") && artifactTitle === selectedArtifact.title || window.confirm("Discard unsaved artifact edits?"); }
   function newTask(nextMode: Mode = "research") { if (!allowDiscard()) return; createRequest.current = null; setWorkflow("manual-brief"); setSourceTitle(""); setSourceUrl(""); setSourceEvidence(""); setActiveTitle(""); setProjectTitle(""); setProjectSources([]); setArtifactDraft(""); setArtifactTitle(""); setMode(nextMode); setConversationId(undefined); setTasks([]); setArtifacts([]); setSelectedArtifact(null); setPrompt(""); setInputType("text"); retry.current = undefined; }
   async function login(e: React.FormEvent) {
-    e.preventDefault(); if (loginBusy) return; setLoginBusy(true);
-    try { await api("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: ownerToken }) }); setOwnerToken(""); setAuthenticated(true); await refresh(); setNotice("Owner session active (8 hours). Token not retained in browser storage."); }
-    catch (error) { reportError(error); }
-    finally { setOwnerToken(""); setLoginBusy(false); }
+    e.preventDefault(); if (loginBusy) return; const epoch = authEpoch.current; setLoginBusy(true);
+    try { await api("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: ownerToken }) }); if (epoch !== authEpoch.current) return; setOwnerToken(""); setAuthenticated(true); await refresh(); if (epoch === authEpoch.current) setNotice("Owner session active (8 hours). Token not retained in browser storage."); }
+    catch (error) { if (epoch === authEpoch.current) reportError(error); }
+    finally { if (epoch === authEpoch.current) { setOwnerToken(""); setLoginBusy(false); } }
   }
   async function logout() {
     // Invalidate in-flight private reads/writes before awaiting the network logout.
