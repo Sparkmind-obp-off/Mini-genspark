@@ -212,4 +212,4 @@ The current VestrenHQ repository tree does not show a Daytona adapter under src/
 
 ## Commercial operating documents
 
-Use docs/20 for ICP/customer discovery, docs/21 for positioning and claim-safe landing copy, docs/22 for staged acquisition and paid-pilot operations, docs/23 for support/customer success, docs/24 for Cursor + Cloudflare manual releases, and docs/25 for product metrics and experiment logging. These are operating standards, not evidence that any gate has passed.
+Use docs/20 for ICP/customer discovery, docs/21 for positioning and claim-safe landing copy, docs/22 for staged acquisition and paid-pilot operations, docs/23 for support/customer success, docs/24 for Cloudflare manual releases, and docs/25 for product metrics and experiment logging. These are operating standards, not evidence that any gate has passed.
