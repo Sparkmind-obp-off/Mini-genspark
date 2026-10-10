@@ -4,7 +4,7 @@
 
 ## Tool responsibilities
 - Development environment: edit code, inspect repository, run terminal commands, review diffs, and work against explicit acceptance criteria. Tool suggestions are not proof that code works.
-- GitHub: canonical source history, feature branches, commits, pushes, and pull requests when useful.
+- GitHub: canonical source history and commits/pushes directly to `main`, as explicitly requested by the owner. Do not create branches or pull requests for routine work.
 - Cloudflare Workers/Wrangler: local Worker development, configuration, D1 migrations, secrets, deployments, logs, and rollback/version management.
 - D1/R2/Workers AI: use only after bindings, limits, access policy, and actual account entitlements are confirmed.
 - Daytona: selected Build sandbox provider; no live claim until the adapter and bounded smoke test pass.
@@ -30,10 +30,10 @@ Never deploy while Wrangler config contains a placeholder D1 ID or unverified Wo
 7. Inspect current live deployment and planned target.
 8. Require explicit release-owner approval before production deploy or live payment.
 
-The repository baseline has placeholder D1 ID and legacy mini-genspark naming. Do not silently rename or attach to an existing production database; identify the correct resource first.
+The Worker and D1 are now named `vestrenhq-private-preview`; the D1 ID is still a placeholder. Do not deploy or run remote migrations until the dedicated D1 has been created in the owner-authorized BYOK account and its actual ID has been recorded. Never attach to an unrelated product database.
 
 ## Manual release sequence
-1. Commit reviewed changes on the intended branch.
+1. Commit reviewed changes directly to `main`; verify GitHub SHA and clean working tree.
 2. Complete local QA and inspect the exact commit.
 3. Run npx wrangler deploy --dry-run to validate the bundle without deploying.
 4. After preflight and approval, run the appropriate Wrangler deploy command for the confirmed environment.
@@ -91,3 +91,13 @@ Record release ID/date/operator; branch and commit SHA; typecheck/test/build res
 - A push does not deploy production by itself.
 - Use local commands + manual Wrangler preflight/deploy/smoke test.
 - Update documentation if the operating model changes; do not introduce an alternative pipeline silently.
+
+
+## Owner-directed private-preview release — 2026-10-10
+
+The owner has explicitly authorized an isolated private-preview deployment to dedicated `vestrenhq-private-preview` Worker + D1 resources in the Cloudflare BYOK account. This is **not** authorization for public launch, custom DNS, paid provider activation, or payments.
+
+- Direct-to-`main` workflow; no new PRs/branches for routine changes.
+- Current `wrangler.jsonc` still contains the placeholder D1 ID `00000000-0000-0000-0000-000000000001`. Create the dedicated D1 with `npx wrangler d1 create vestrenhq-private-preview`, replace the ID using the real returned value in a direct `main` commit, then rerun QA before remote migrations.
+- The current ChatGPT execution environment has no Cloudflare/Wrangler connector or authenticated Cloudflare credentials, and cannot resolve GitHub from its shell. Therefore it cannot truthfully create the remote D1/Worker or deploy in this session. No deployment URL/version is claimed.
+- Once authenticated Cloudflare access is available, follow the full command sequence in `docs/27_CURRENT_GAP_ASSESSMENT_AND_DIRECT_MAIN_RELEASE.md`. Do not activate providers or payments during the private preview.
