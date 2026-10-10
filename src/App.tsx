@@ -24,7 +24,7 @@ type ApiResponse = {
 };
 
 const modeLabels: Record<Mode, { title: string; description: string; icon: string; placeholder: string }> = {
-  chat: { title: "Chat", description: "Think through an idea", icon: "✳", placeholder: "Ask Mini Genspark anything…" },
+  chat: { title: "Chat", description: "Think through an idea", icon: "✳", placeholder: "Ask Vestren anything…" },
   research: { title: "Research", description: "Work with evidence", icon: "⌕", placeholder: "What do you need to research? Live web search is not connected yet." },
   create: { title: "Create", description: "Turn thoughts into a deliverable", icon: "▤", placeholder: "Draft a document, proposal, or plan…" },
   analyze: { title: "Analyze", description: "Reason through data and questions", icon: "▥", placeholder: "Paste the figures or data you want to analyze…" },
@@ -148,9 +148,9 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <button className="brand" onClick={newTask} aria-label="Mini Genspark home">
+        <button className="brand" onClick={newTask} aria-label="Vestren home">
           <span className="brand-mark"><span /><span /><span /><span /></span>
-          <span className="brand-text">mini<span>genspark</span><small>PERSONAL AI WORKSPACE</small></span>
+          <span className="brand-text"><span>Vestren</span><small>PERSONAL AI WORKSPACE</small></span>
         </button>
         <button className="new-task" onClick={newTask}><span>＋</span> New task <kbd>⌘ K</kbd></button>
         <div className="nav-label">WORKSPACE</div>
@@ -177,7 +177,7 @@ export default function App() {
             <small>{configured ? "Owner-only API · capped requests" : "No external AI request is sent"}</small>
           </div>
           <button className="settings-button" onClick={() => setSettingsOpen(true)}><span>⚙</span> Settings & provider</button>
-          <div className="sidebar-foot"><span>MINI GENSPARK V0.1</span><span className="foot-dot" /> FREE-FIRST</div>
+          <div className="sidebar-foot"><span>VESTREN · V0.1</span><span className="foot-dot" /> FREE-FIRST</div>
         </div>
       </aside>
 
@@ -233,7 +233,7 @@ export default function App() {
                 {messages.map((message) => (
                   <article className={"message message-" + message.role} key={message.id}>
                     <div className="message-avatar">{message.role === "user" ? "Y" : <span className="mini-mark">✳</span>}</div>
-                    <div className="message-body"><div className="message-meta">{message.role === "user" ? "You" : "Mini Genspark"}</div><pre>{message.content}</pre></div>
+                    <div className="message-body"><div className="message-meta">{message.role === "user" ? "You" : "Vestren"}</div><pre>{message.content}</pre></div>
                   </article>
                 ))}
                 {busy && <div className="working-state"><span className="spinner" /> Working within configured limits…</div>}
@@ -252,7 +252,7 @@ export default function App() {
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
           <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
             <div className="modal-header"><div><div className="eyebrow">OWNER CONFIGURATION</div><h2 id="settings-title">Settings & provider</h2></div><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">×</button></div>
-            <p className="modal-copy">Mini Genspark uses a server-side Cloudflare Workers AI binding. The owner token is sent in a request header and kept only in this browser tab's session storage.</p>
+            <p className="modal-copy">Vestren uses a server-side Cloudflare Workers AI binding. The owner token is sent in a request header and kept only in this browser tab's session storage.</p>
             <div className="settings-row"><span>Runtime provider</span><strong>Cloudflare Workers AI</strong><small>{health?.aiBindingConfigured ? "Binding detected" : "Not detected by the API"}</small></div>
             <div className="settings-row"><span>Free-tier guard</span><strong>{health?.freePlanConfirmed ? "Owner confirmed Workers Free" : "Disabled until confirmed"}</strong><small>Do not enable if this Cloudflare account can bill usage beyond its free allocation.</small></div>
             <div className="settings-row"><span>Model</span><strong>{health?.model ?? "@cf/meta/llama-3.1-8b-instruct-fp8-fast"}</strong><small>Model availability and billing eligibility must be checked on your Cloudflare account.</small></div>
