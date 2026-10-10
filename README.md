@@ -1,73 +1,67 @@
-# Vestren — AI Workspace
+# VestrenHQ — Vestren AI Workspace
 
-**Vestren is an original, free-tier-first AI workspace designed to turn a prompt into a researched answer, a useful artifact, an analysis, or a bounded build task.**
-
-This branch begins the rebrand of the Mini Genspark workspace baseline into Vestren. It also adopts selected architectural principles from the existing [Vestren Workbench repository](https://github.com/Sparkmind-obp-off/vestren): explicit identity and authorization boundaries, provider-neutral interfaces, project-scoped execution, auditable workflows, and isolated execution.
+**Vestren is building an AI workspace that turns requests into useful, evidence-backed and reviewable work products.** This is a commercial product effort, not a collection of disconnected demos.
 
 ## Product direction
 
-Vestren should feel like one workspace, not a collection of disconnected chatbots:
+One workspace, shared core services:
+- **Chat** — reason, decide, and iterate.
+- **Research** — retrieve sources, track evidence, show dates and uncertainty.
+- **Create** — produce editable documents and deliverables.
+- **Analyze** — inspect structured data and run deterministic calculations.
+- **Build** — plan repository changes, inspect diffs, and use bounded execution.
+- **Agent runs** — visible plans, progress, permissions, verification, and artifacts.
+- **Projects and memory** — user-controlled context and durable work history.
 
-- **Chat** — reasoning and iterative work.
-- **Research** — web research with retrieved sources, dates, citations, and uncertainty clearly shown.
-- **Create** — editable documents and other deliverables.
-- **Analyze** — structured data inspection, calculations, tables, and charts.
-- **Build** — repository-aware planning and code changes, with tests and human review.
-- **Agent runs** — multi-step tasks with a visible plan, tool permissions, progress, artifacts, and verification.
-- **Projects and memory** — user-controlled context and durable work history, added only with explicit privacy and access controls.
+The product inspiration is the broad all-in-one AI workspace category, including Genspark. Vestren must have its own implementation, brand, visual language, and product decisions; it does not claim feature parity with Genspark.
 
-The product may learn from general AI-workspace interaction patterns, including Genspark's unified workflow approach. It must not copy proprietary code, logos, protected assets, or distinctive pixel-exact UI. Vestren's implementation, visual identity, prompts, and product decisions remain original.
+## Commercial strategy
 
-## Architecture principles adopted from the existing Vestren Workbench
+The first market hypothesis is evidence-backed research and work-product creation for solo operators, small teams, and builders. This is not yet validated. The next proof is real repeated use, 3–5 design partners, and a narrow paid pilot—not adding more modes.
 
-1. **Identity is not authorization.** A verified login is not enough; server-side project membership and permissions must be checked for each protected resource.
-2. **Control plane is separate from execution plane.** Do not run untrusted generated code inside a normal Worker request.
-3. **Provider-neutral interfaces.** Model, search, tools, storage, and sandbox providers are adapters behind stable internal contracts.
-4. **Visible, bounded agent execution.** Plans, allowed tools, limits, status, errors, artifacts, and verification outcomes are inspectable.
-5. **Project-scoped persistence.** Conversations, executions, and artifacts must be isolated by tenant/project where multi-user support is enabled.
-6. **Fail closed.** No configured provider, missing authorization, exhausted quota, or failed verification must not silently fall back to paid or unsafe execution.
-7. **Human approval for consequential actions.** External writes, publishing, deployments, sending messages, and spending money require explicit approval.
-8. **Evidence over claims.** Distinguish local/mock tests, configured providers, and live-verified integrations.
+Read:
+- [Commercial Startup Blueprint](docs/13_COMMERCIAL_STARTUP_BLUEPRINT.md)
+- [Commercial Product Specification](docs/14_COMMERCIAL_PRODUCT_SPEC.md)
+- [Pricing and Go-to-Market](docs/15_PRICING_AND_GO_TO_MARKET.md)
+- [Commercial Release Gates](docs/16_COMMERCIAL_RELEASE_GATES.md)
+- [Trust, Privacy, and Operations](docs/17_TRUST_PRIVACY_AND_OPERATIONS.md)
+- [Commercial Gap Register](docs/18_COMMERCIAL_GAP_REGISTER.md)
+- [Free-First Bootstrap and Monetization](docs/19_FREE_FIRST_BOOTSTRAP_AND_MONETIZATION.md)
+- [Product Constitution](docs/00_VESTREN_PRODUCT_CONSTITUTION.md)
+- [Architecture](docs/03_ARCHITECTURE.md)
+- [Roadmap and acceptance criteria](docs/04_ROADMAP.md)
+- [Full-stack architecture](docs/12_VESTREN_FULL_STACK_ARCHITECTURE.md)
+- [Migration plan](docs/11_VESTREN_MIGRATION_PLAN.md)
 
-## Current branch scope
+## Operating decisions
 
-This branch applies the initial product name in the existing Mini Genspark UI and worker prompt, and records the product/architecture blueprint. It is **not** a completed merge of both repositories, and it is not a production launch.
+- **Canonical repository:** VestrenHQ.
+- **Source control:** GitHub; branch, commit, inspect diff, push.
+- **No GitHub Actions / GitHub CI.** Use local checks and a manual release checklist.
+- **Runtime and deployment:** Cloudflare Workers + Wrangler.
+- **Metadata:** Cloudflare D1.
+- **File bodies/artifacts:** Cloudflare R2 when needed.
+- **Code sandbox:** Daytona selected for V1. It must run through a server-side adapter; no E2B fallback and no fake success.
+- **Cost policy:** free-tier-first, hard quota stops, no hidden paid fallback.
+- **Production:** no deployment until target bindings, secrets, auth, and rollback are verified.
 
-The current Mini Genspark codebase is a smaller React/Vite + Cloudflare Worker/D1 workspace. The separate Vestren Workbench repository has the more developed Auth0/OIDC, tenant/project authorization, R2 artifact, and E2B execution-provider boundaries. Those capabilities must be integrated deliberately rather than copied over blindly.
+## Current implementation truth
 
-## Target architecture
+The current codebase is a small React + TypeScript + Vite workspace with a Cloudflare Worker, Workers AI binding, D1 usage/audit tables, and an owner-token gate. UI modes do not imply all integrations are live. The Worker currently states that live web search and file upload are not enabled. Public multi-user SaaS auth, durable project/conversation storage, complete artifact storage, and the Daytona adapter are not confirmed in this repository tree.
 
-- **Experience layer:** React + TypeScript workspace; Chat, Research, Create, Analyze, Build, Projects, Runs, Artifacts.
-- **Control plane:** Cloudflare Pages/Workers API for identity, authorization, quotas, planning, approvals, and audit.
-- **Intelligence plane:** provider-neutral LLM and research adapters; route by capability, privacy, availability, and cost.
-- **Execution plane:** ExecutionProvider interface; E2B as the existing Vestren adapter, with a deterministic mock for tests. Other sandbox providers remain optional adapters, not hard-coded dependencies.
-- **Data plane:** D1 for relational metadata and authorization; R2 for artifact bodies; Durable Objects only when live session coordination needs them.
-- **Tool plane:** typed internal tools and, where justified, MCP adapters with strict schemas, allowlists, timeouts, and audit events.
-- **Quality plane:** unit/integration/browser tests, provider contract tests, explicit live smoke tests, artifact verification, and security checks.
+The current Wrangler config still contains a placeholder D1 database ID and legacy resource naming. Do not deploy remotely until real Cloudflare bindings and target environment are verified. Do not put provider secrets in frontend variables or committed files.
 
-## Free-tier-first policy
+## Local checks
 
-- No automatic paid fallback, auto top-up, or production deployment without explicit approval.
-- A free quota is finite and may change. Configure hard limits and stop safely at quota exhaustion.
-- Keep provider credentials server-side; never log or expose secrets.
-- Mark every integration as mock, configured, or live-verified.
-- Do not claim a capability is live until an actual provider smoke test passes.
+From a local checkout with Node/npm installed:
 
-## Migration guardrails
+    npm install
+    npm run typecheck
+    npm test
+    npm run build
 
-- Keep this work on a feature branch until review.
-- Do not rename production Cloudflare resources, D1 database bindings, secrets, or deployment projects as part of a UI-only rebrand.
-- Preserve existing tests and migrations; add tests before changing authentication, persistence, or execution.
-- Treat the existing Vestren Workbench repo as a source of architecture patterns, not as a reason to maintain two competing Vestren products.
-- The eventual canonical repository name can be chosen separately (for example, vestren or vestren-hq). Repository renaming and deployment/domain changes are not performed by this branch.
+These commands are not reported as passing unless actually run. GitHub Actions are intentionally not used. For an approved deployment, use Wrangler explicitly after reviewing the target account, Worker name, bindings, and secrets.
 
-## Status and verification
+## Product rule
 
-The remote main branch is the pre-rebrand baseline. This feature branch is a proposal for the initial Vestren workspace rebrand. No production deployment, live model call, live search, Auth0 login, or real sandbox execution is implied by the presence of these files.
-
-## References
-
-- [Existing Vestren Workbench](https://github.com/Sparkmind-obp-off/vestren)
-- [Mini Genspark baseline](https://github.com/Sparkmind-obp-off/Mini-genspark)
-- [Genspark AI Workspace 6.0 overview](https://www.genspark.ai/blog/genspark-ai-workspace-6)
-- [Genspark Super Agent](https://www.genspark.ai/helpcenter/super-agent)
+A feature is done only when the user-visible behavior, authorization, cost/quota behavior, failure state, documentation, and verification evidence agree. A mock is not a live provider test. A successful deployment is not proof that a workflow is useful. The startup must prove repeat usage and willingness to pay.

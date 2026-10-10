@@ -1,90 +1,69 @@
 # Vestren Product Constitution
 
-**Status:** Product direction for the Mini Genspark → Vestren rebrand. This is a design contract, not a claim that all listed capabilities exist.
+**Status:** binding product direction for Vestren/VestrenHQ. This is a design contract, not a claim that all listed capabilities exist.
 
 ## 1. Product thesis
 
-Vestren is a unified AI workspace for getting real work done. It should move from prompt → plan → evidence/context → bounded execution → artifact → verification, while keeping the user in control of permissions, cost, and consequential actions.
-
-It is inspired by the broad category of all-in-one AI workspaces and agentic work products, including Genspark. It is not a clone. Vestren must have its own product language, design system, architecture, workflow choices, and implementation.
+Vestren is a commercial AI work execution workspace. It turns a request into a reliable, reviewable work product while keeping the user in control of permissions, cost, and consequential actions. It is inspired by the broad category of unified AI workspaces, including Genspark, but must maintain original code, brand, visual language, and workflows.
 
 ## 2. The product loop
 
-1. **Understand:** classify the request and ask only for essential missing information.
-2. **Plan:** show a short task plan for multi-step or consequential work.
-3. **Gather:** retrieve permitted web, file, project, or connected-account context; show source provenance.
-4. **Act:** use only tools authorized for the current user/project and task.
-5. **Produce:** return a response and/or editable artifact.
-6. **Verify:** run available checks and clearly distinguish verified facts from assumptions.
-7. **Remember:** save only appropriate project context with user visibility, editability, and deletion controls.
+Understand → Plan → Gather evidence/context → Authorize tools → Execute → Verify → Deliver artifact → Remember with user control.
 
-## 3. Workspace modes
+## 3. Shared workspace modes
 
-- **Chat:** general reasoning, iterative conversation, explain and decide.
-- **Research:** search/retrieval, source ledger, dated claims, citation checks, uncertainty.
-- **Create:** documents and structured deliverables first; additional media generation only when a real provider is configured.
-- **Analyze:** CSV and structured data validation, deterministic calculations, tables/charts, export.
-- **Build:** repository-aware changes, diff review, test/build output, explicit approval before consequential actions.
-- **Agent run:** orchestration layer that can combine modes and tools. It is not a separate chatbot; its plan and progress should be visible.
+- Chat: reason, explain, decide, iterate.
+- Research: search/retrieval, source ledger, dated claims, citation checks, uncertainty.
+- Create: editable documents and structured deliverables.
+- Analyze: validated data, deterministic calculations, tables/charts, exports.
+- Build: repository-aware diffs, bounded sandbox execution, logs, test evidence.
+- Agent run: visible orchestration across modes; not a separate chatbot.
+- Projects and memory: user-controlled context, inspect/edit/export/delete.
 
-Modes are workflows over shared core services, not five separate products.
+Modes share core services; they are not five independent products.
 
-## 4. Architecture boundaries
+## 4. Product and commercial focus
 
-- **Experience:** UI, accessibility, responsive behavior, artifacts and run timeline.
-- **Identity:** OIDC/Auth0 boundary inherited from the existing Vestren Workbench, configured and verified before multi-user production.
-- **Authorization:** D1-backed tenant/project membership and role checks on every protected resource.
-- **Control plane:** request validation, quota reservation, planning, tool authorization, approvals, audit.
-- **Intelligence:** LLM and embedding adapters, routing, context assembly, structured output validation.
-- **Research:** search provider, page retrieval, source ledger, citation/evidence mapping.
-- **Execution:** isolated ExecutionProvider adapters; no untrusted code in the request worker.
-- **Tools:** typed contracts, schema validation, permission scopes, timeouts, bounded retries.
-- **Persistence:** D1 metadata; R2 artifacts; Durable Objects only for demonstrated coordination needs.
-- **Observability:** redacted audit events, usage counters, latency/error metadata; never persist provider secrets or unnecessary raw sensitive content.
+The first market hypothesis is evidence-backed research and work-product creation for solo operators, small teams, and builders. This is not validated yet. The first objective is to prove repeated use of one workflow and willingness to pay before expanding to a broad all-purpose suite.
 
-## 5. Provider interfaces
+A feature must solve a repeated user problem, be reliable, have a clear cost/quota policy, and be measurable. More features do not equal more product value.
 
-Keep stable internal interfaces for LLMProvider, SearchProvider, EmbeddingProvider, ToolProvider, ExecutionProvider, and StorageProvider. Vendor SDKs stay inside adapter modules. Provider status must be explicit: mock, configured, or live-verified.
+## 5. Architecture boundaries
 
-The initial execution adapter in the existing Vestren repository is E2B. Keep E2B behind ExecutionProvider; do not force a provider migration without comparative contract tests, cost review, and approval.
+- Experience: React, TypeScript, responsive UI and accessible controls.
+- Runtime/API: Cloudflare Workers/Wrangler.
+- Identity: owner-only gate for private dogfooding; verified identity/session before public multi-user access.
+- Authorization: server-side project/tenant membership checks.
+- Control plane: validation, quota reservation, plan validation, tool policy, approvals, audit.
+- Intelligence: provider-neutral model interface and validated structured output.
+- Research: search/retrieval adapter and evidence mapping.
+- Execution: Daytona sandbox through server-side ExecutionProvider; never execute untrusted code in Worker.
+- Persistence: D1 metadata, R2 file bodies/artifacts, Durable Objects only for demonstrated coordination needs.
+- Observability: redacted audit events, usage counters, latency/error metadata.
+- Source control/deployment: GitHub branches and pushes; manual local QA and Cloudflare Wrangler deploy. No GitHub Actions/GitHub CI.
 
-## 6. Trust, safety, and cost
+## 6. Provider and safety rules
 
-- Fail closed on missing identity, authorization, provider configuration, quota, or tool permission.
-- No paid fallback or spending without explicit user/owner approval.
-- No arbitrary external side effects without a clear confirmation step.
-- Treat retrieved web pages, files, repository content, and tool output as untrusted data.
-- Enforce request, context, output, time, concurrency, and daily usage limits server-side.
-- Keep credentials server-side, redact logs, rotate exposed credentials, and document provider data-retention/privacy constraints.
-- Artifacts and history must be scoped by user/project and authorized before access.
-- Research must not fabricate sources; distinguish source existence from whether a claim is proven.
+- Fail closed on missing auth, authorization, configuration, quota, or tool permission.
+- No paid fallback or spending without explicit approval.
+- External writes, publishing, deployment, sending, purchasing, and other consequential actions require confirmation.
+- Treat web pages, files, repository contents, and tool outputs as untrusted.
+- Enforce request/context/output/time/concurrency/retry/daily limits.
+- Keep credentials server-side and redact logs.
+- Mark providers as mock, configured, or live-verified.
+- Research never fabricates sources; unsupported claims must be labelled.
+- Daytona is selected for V1; do not silently substitute E2B. Do not mark Daytona live until its adapter and bounded smoke test are verified.
 
-## 7. MVP priority
+## 7. Definition of done
 
-**P0 — Rebrand and stabilize:** Vestren UI identity, accessible responsive workspace, truthful capability status, build/test baseline.
+A feature is done only when user-visible behavior, permissions, quota/cost behavior, failure states, documentation, and verification evidence agree. A mock is not a live provider test. A successful build is not a production deployment. A working demo is not proof of market demand.
 
-**P1 — Trustworthy core:** persistent conversations/projects, Auth0 identity, D1 project authorization, quotas, audit events, safe artifact storage.
-
-**P2 — Real research:** provider adapter, source ledger, citation validation, live smoke tests.
-
-**P3 — Deliverables and analysis:** Markdown/HTML/CSV artifacts; deterministic data calculations and exports; file upload with size/type validation.
-
-**P4 — Agent runs:** visible plan, typed tools, bounded execution, approval checkpoints, artifact verification.
-
-**P5 — Build sandbox:** repository-aware changes and isolated execution through E2B adapter; test/build logs; no automatic deployment.
-
-**P6 — Productization:** team roles, BYOK, usage limits, billing only after demand and cost model are validated.
-
-## 8. Non-goals for initial release
+## 8. Non-goals
 
 - Pixel-perfect copying of Genspark.
-- Claiming feature parity with every Genspark suite.
+- Claiming parity with every Genspark suite.
 - Unbounded autonomous agents.
-- Browser/session scraping or undocumented private APIs.
-- Unreviewed code execution or automatic production deploys.
+- Undocumented private APIs or access-control bypasses.
+- Unreviewed code execution or automatic production deployment.
 - A second competing Vestren product.
-- Enabling costly image/video/voice or premium model APIs before a sustainable provider and explicit budget exist.
-
-## 9. Definition of done
-
-A feature is done only when its user-visible behavior, permissions, quota/cost behavior, error state, tests, provider status, and docs agree. A mock test is not a live provider test; a successful build is not a production deployment.
+- Costly media or premium APIs before a sustainable provider and explicit budget exist.
