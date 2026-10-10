@@ -61,6 +61,25 @@ describe("React workflows with deterministic mocked API", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open settings" })); fireEvent.click(screen.getByRole("button", { name: "Refresh configuration" })); await screen.findByLabelText("Application owner token (not a provider API key)");
     expect(screen.queryByText("Private research title")).toBeNull(); expect((screen.getByLabelText("Project title", { exact: true }) as HTMLInputElement).value).toBe(""); expect(screen.queryByLabelText("Source title", { exact: true })).toBeNull();
   });
+  it("does not restore a delayed private project response after logout", async () => {
+    const fetcher = vi.mocked(fetch); const original = fetcher.getMockImplementation()!;
+    let releaseProject!: (response: Response) => void;
+    fetcher.mockImplementation((path, options) => {
+      if (path === "/api/conversations") return Promise.resolve(new Response(JSON.stringify([{ id: "private-project", title: "Private project", mode: "research" }])));
+      if (path === "/api/conversations/private-project") return new Promise<Response>(resolve => { releaseProject = resolve; });
+      return original(path, options);
+    });
+    render(<App />); await screen.findByRole("button", { name: "Private project" });
+    fireEvent.click(screen.getByRole("button", { name: "Private project" }));
+    await waitFor(() => expect(releaseProject).toBeTypeOf("function"));
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+    await screen.findByLabelText("Application owner token (not a provider API key)");
+    releaseProject(new Response(JSON.stringify({ title: "Private project", mode: "research", tasks: [fixture], artifacts: [], sources: [] })));
+    await waitFor(() => expect(screen.queryByText("Private project")).toBeNull());
+    expect(screen.queryByText(fixture.response)).toBeNull();
+    expect(screen.getByRole("button", { name: "Run task" }).hasAttribute("disabled")).toBe(true);
+  });
   it("supports input format and accessible Settings without browser token storage", async () => {
     render(<App />); await screen.findByText("Configured · not smoke-tested");
     fireEvent.click(within(screen.getByRole("navigation", { name: "Workspace modes" })).getByRole("button", { name: /Analyze/ })); expect(screen.getByLabelText("Input format")).toBeTruthy();
