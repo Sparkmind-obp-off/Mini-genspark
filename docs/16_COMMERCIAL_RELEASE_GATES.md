@@ -79,7 +79,7 @@ Passing a build does not mean passing security. Passing security does not prove 
 - Public positioning and claim substantiation: docs/21_POSITIONING_AND_LANDING_PAGE.md.
 - Launch stages and go/no-go: docs/22_GO_TO_MARKET_EXECUTION_PLAYBOOK.md.
 - Support operations: docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md.
-- Manual Cursor/Cloudflare release record: docs/24_CURSOR_CLOUDFLARE_MANUAL_RELEASE_RUNBOOK.md.
+- Manual Cloudflare release record: docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md.
 - Metrics and experiments: docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md.
 
 A checklist remains open until an actual artifact, test result, customer record, or approval is linked. A document describing a requirement is not evidence that it has been met.
