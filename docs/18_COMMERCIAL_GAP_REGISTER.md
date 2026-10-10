@@ -65,5 +65,5 @@
 - Claim-safe landing page and sample: docs/21_POSITIONING_AND_LANDING_PAGE.md.
 - Outreach, design-partner and paid-pilot stages: docs/22_GO_TO_MARKET_EXECUTION_PLAYBOOK.md.
 - Support, billing and incident handling: docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md.
-- Cursor + manual Wrangler release evidence: docs/24_CURSOR_CLOUDFLARE_MANUAL_RELEASE_RUNBOOK.md.
+- manual Wrangler release evidence: docs/24_CLOUDFLARE_WORKERS_MANUAL_RELEASE_RUNBOOK.md.
 - Product metrics and experiment results: docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md.
