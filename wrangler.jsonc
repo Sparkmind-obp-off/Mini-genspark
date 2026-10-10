@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "mini-genspark",
+  "name": "vestrenhq-private-preview",
   "main": "src/worker.ts",
   "compatibility_date": "2026-10-10",
   "assets": {
@@ -13,7 +13,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "mini-genspark",
+      "database_name": "vestrenhq-private-preview",
       "database_id": "00000000-0000-0000-0000-000000000001", // Local placeholder; replace with the real D1 ID before remote deployment.
       "migrations_dir": "migrations"
     }
