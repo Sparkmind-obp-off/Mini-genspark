@@ -70,3 +70,16 @@ This document controls the words “ready”, “launch”, “paid”, and “p
 - **Commercially ready for stated scope:** all applicable gates above have evidence and the release owner has signed off.
 
 Passing a build does not mean passing security. Passing security does not prove demand. A domain resolving does not mean the product is sellable. Never promote a release label without evidence.
+
+
+
+## Evidence and operating references
+
+- Customer interview and ICP evidence: docs/20_ICP_AND_CUSTOMER_DISCOVERY.md.
+- Public positioning and claim substantiation: docs/21_POSITIONING_AND_LANDING_PAGE.md.
+- Launch stages and go/no-go: docs/22_GO_TO_MARKET_EXECUTION_PLAYBOOK.md.
+- Support operations: docs/23_CUSTOMER_SUPPORT_AND_SUCCESS_RUNBOOK.md.
+- Manual Cursor/Cloudflare release record: docs/24_CURSOR_CLOUDFLARE_MANUAL_RELEASE_RUNBOOK.md.
+- Metrics and experiments: docs/25_PRODUCT_METRICS_AND_EXPERIMENT_LOG.md.
+
+A checklist remains open until an actual artifact, test result, customer record, or approval is linked. A document describing a requirement is not evidence that it has been met.
