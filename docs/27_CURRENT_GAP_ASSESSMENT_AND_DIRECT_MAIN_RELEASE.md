@@ -1,6 +1,7 @@
 # VestrenHQ — Current Gap Assessment & Direct-Main Private Preview Release
 
 **Assessment date:** 2026-10-10  
+**Latest verified main SHA at wrap-up:** `b5af1e0570ad963144fe9b3f407925d29b95430b`  
 **Canonical branch:** `main`  
 **Release target:** isolated `vestrenhq-private-preview` Worker + D1, private owner-only preview, no custom domain/DNS  
 **Release state:** `NO-GO / DEPLOYMENT BLOCKED` in this execution environment. This is an access/resource blocker, not a claim that local implementation is broken.
