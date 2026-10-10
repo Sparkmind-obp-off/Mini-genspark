@@ -77,7 +77,7 @@ async function executeTask(request: Request, env: Env): Promise<Response> {
   try {
     await db.batch([
       db.prepare("INSERT OR IGNORE INTO conversations(id,owner_id,mode,title,created_at) SELECT ?,?,?,?,? WHERE (SELECT count(*) FROM conversations WHERE owner_id=?)<50 OR EXISTS(SELECT 1 FROM conversations WHERE id=? AND owner_id=?)").bind(conversationId, ownerId, input.mode, input.prompt.slice(0, 90), now, ownerId, conversationId, ownerId),
-      db.prepare("INSERT INTO tasks(id,owner_id,conversation_id,idempotency_key,input_hash,mode,prompt,status,provider,model,created_at,updated_at,analysis_json) SELECT ?,?,?,?,?,?,?,'running',?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM tasks WHERE status='running')").bind(taskId, ownerId, conversationId, key, inputHash, input.mode, input.prompt, config.provider, config.model, now, now, analysis)
+      db.prepare("INSERT INTO tasks(id,owner_id,conversation_id,idempotency_key,input_hash,mode,prompt,status,provider,model,created_at,updated_at,analysis_json) SELECT ?,?,?,?,?,?,?,'running',?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM tasks WHERE status='running') AND EXISTS(SELECT 1 FROM conversations WHERE id=? AND owner_id=?)").bind(taskId, ownerId, conversationId, key, inputHash, input.mode, input.prompt, config.provider, config.model, now, now, analysis, conversationId, ownerId)
     ]);
   } catch {
     const duplicate = await db.prepare("SELECT * FROM tasks WHERE owner_id=? AND idempotency_key=?").bind(ownerId, key).first<Task>();
@@ -87,6 +87,8 @@ async function executeTask(request: Request, env: Env): Promise<Response> {
   const inserted = await db.prepare("SELECT id FROM tasks WHERE id=?").bind(taskId).first();
   if (!inserted) {
     if (!input.conversationId) await db.prepare("DELETE FROM conversations WHERE id=? AND NOT EXISTS(SELECT 1 FROM tasks WHERE conversation_id=?)").bind(conversationId, conversationId).run();
+    const conversationExists = await db.prepare("SELECT id FROM conversations WHERE id=? AND owner_id=?").bind(conversationId, ownerId).first();
+    if (!conversationExists) throw new AppError("PROJECT_LIMIT_REACHED", 409, "Maximum 50 saved projects reached. Delete an unused project before starting another.");
     throw new AppError("WORKSPACE_BUSY", 409, "One task may execute at a time. Retry after it completes.");
   }
   let sources: Source[] = [];
