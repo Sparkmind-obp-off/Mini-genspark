@@ -83,6 +83,14 @@ describe("Worker API with real local D1/SQLite; inference MOCKED", () => {
     expect((await db.prepare("SELECT count(*) AS n FROM tasks WHERE status='failed'").first<{ n: number }>())!.n).toBe(2);
     expect(env.AI!.run).toHaveBeenCalledTimes(1);
   });
+  it("does not create orphan tasks when the saved-project cap is reached", async () => {
+    for (let i = 0; i < 50; i++) await db.prepare("INSERT INTO conversations(id,owner_id,mode,title,created_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(), "workspace-owner", "chat", "Project " + i, new Date().toISOString()).run();
+    const response = await submit("Must not create an orphan");
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: "PROJECT_LIMIT_REACHED" });
+    expect((await db.prepare("SELECT count(*) AS n FROM tasks").first<{ n: number }>())!.n).toBe(0);
+    expect((await db.prepare("SELECT count(*) AS n FROM conversations").first<{ n: number }>())!.n).toBe(50);
+  });
   it("allows only one concurrent inference and handles duplicate pending requests", async () => {
     let release!: (value: { response: string }) => void; let started!: () => void;
     const startSignal = new Promise<void>(resolve => { started = resolve; });
