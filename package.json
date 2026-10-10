@@ -1,9 +1,9 @@
 {
-  "name": "mini-genspark",
+  "name": "vestrenhq",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "A free-tier-first personal AI workspace.",
+  "description": "Vestren AI workspace — a free-tier-first, evidence-backed work execution product.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
