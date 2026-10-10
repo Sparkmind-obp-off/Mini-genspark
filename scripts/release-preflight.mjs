@@ -27,7 +27,7 @@ try {
   await query('SELECT revision,updated_at FROM artifacts LIMIT 0');
   const project = await api('/pages/projects/' + config.name);
   assert.equal(project.production_branch, 'main');
-  assert.equal(project.source, null, 'No automatic Git deployment integration');
+  assert.equal(project.source ?? null, null, 'No automatic Git deployment integration');
   for (const environment of ['preview','production']) {
     const runtime = project.deployment_configs[environment];
     assert.equal(runtime.d1_databases.DB.id, db.database_id);

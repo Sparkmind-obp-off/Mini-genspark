@@ -41,7 +41,7 @@ try {
   const runtime = project.deployment_configs[deployment.environment];
   assert.equal(runtime.d1_databases.DB.id, c.d1_databases[0].database_id);
   assert.equal(runtime.env_vars.OWNER_ACCESS_TOKEN.type, 'secret_text');
-  assert.equal(project.source, null); assert.equal(project.production_branch, 'main');
+  assert.equal(project.source ?? null, null); assert.equal(project.production_branch, 'main');
   pass('Cloudflare Pages deployment SHA, intended D1 ID and secret type verified');
   context = await request.newContext({ timeout: 30000 });
   const health = await call('/api/health'); assert.equal(health.status(),200); const h = await health.json(); safe(h);
@@ -91,8 +91,9 @@ try {
   await page.screenshot({path:'.qa/pages-remote-desktop.png',fullPage:true}); await page.setViewportSize({width:390,height:844}); assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)); await page.screenshot({path:'.qa/pages-remote-mobile.png',fullPage:true}); assert.deepEqual(errors,[]); await bc.close(); await browser.close(); browser=undefined;
   assert.equal((await call('/api/projects/'+id,'DELETE')).status(),200); projectId=undefined; assert.equal((await call('/api/projects/'+id)).status(),404); assert.equal((await query('SELECT id FROM conversations WHERE id=?',[id])).length,0);
   pass('Actual Pages D1 write independently queried; manual brief/provenance/replay/CAS/all exports/reopen/browser/dashboard/mobile/delete');
-  const view = await (await call('/api/security')).json(), label = view.authentication.sessionLabel;
-  const expired = await query('UPDATE sessions SET expires_at=? WHERE audit_id LIKE ? AND credential_hash=? RETURNING audit_id',[Date.now()-1000,label+'%',createHash('sha256').update(token).digest('hex')]); assert.equal(expired.length,1);
+  const ownCookie = (await context.storageState()).cookies.find(cookie => cookie.name === '__Host-vestren-session');
+  assert.ok(ownCookie?.value, 'Synthetic session cookie missing');
+  const expired = await query('UPDATE sessions SET expires_at=? WHERE token_hash=? AND credential_hash=? RETURNING audit_id',[Date.now()-1000,createHash('sha256').update(ownCookie.value).digest('hex'),createHash('sha256').update(token).digest('hex')]); assert.equal(expired.length,1);
   assert.equal((await call('/api/security')).status(),401); await login(token);
   const finalView = await (await call('/api/security')).json(); safe(finalView);
   safe(await query('SELECT * FROM access_events ORDER BY created_at DESC LIMIT 200')); safe(await query('SELECT * FROM owner_credentials'));
